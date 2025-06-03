@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Résultats pour "{{ query }}"{% endblock %}
+
+{% block nav %}
+    <a href="{{ url_for('main.index') }}" class="nav-button">← Retour à la liste des matchs</a>
+{% endblock %}
+
+{% block content %}
+    <h1>🔍 Résultats pour : <em>{{ query }}</em></h1>
+
+    {% if players %}
+        <h2>Joueurs</h2>
+        <ul>
+            {% for player in players %}
+                <li><a href="{{ url_for('main.player_detail', player_id=player[0]) }}">{{ player[1] }}</a></li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if teams %}
+    <h2>Équipes</h2>
+    <ul>
+        {% for team in teams %}
+            <li>
+                <a href="{{ url_for('main.team_matches', team_id=team[0]) }}">
+                    {{ team[1] }}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+
+    {% if not players and not teams %}
+        <p>Aucun résultat trouvé pour "{{ query }}".</p>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Exemple Chart.js 4 avec Datalabels</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <style>
+    canvas {
+      max-width: 600px;
+      margin: 40px auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="myChart" height="300"></canvas>
+  <script>
+    const ctx = document.getElementById('myChart').getContext('2d');
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Match 1', 'Match 2', 'Match 3', 'Match 4'],
+        datasets: [{
+          label: 'Minutes jouées',
+          data: [42, 65, 30, 90],
+          backgroundColor: '#4CAF50',
+          datalabels: {
+            anchor: 'center',
+            align: 'center',
+            color: '#000',
+            font: {
+              weight: 'bold',
+              size: 13
+            },
+            formatter: function(value) {
+              return `${value}'`;
+            }
+          }
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          datalabels: {
+            clamp: true
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  </script>
+</body>
+</html>

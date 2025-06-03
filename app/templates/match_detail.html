@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}Détail du match{% endblock %}
+
+{% block nav %}
+    <a href="{{ url_for('main.index') }}" class="nav-button">← Retour</a>
+{% endblock %}
+
+{% block content %}
+{% if match %}
+<form method="get" class="filter-form">
+    <label>📊 Stat :</label>
+    <select name="stat">
+        <option value="goals" {% if stat == 'goals' %}selected{% endif %}>Buts</option>
+        <option value="assists" {% if stat == 'assists' %}selected{% endif %}>Passes</option>
+        <option value="minutes" {% if stat == 'minutes' %}selected{% endif %}>Minutes</option>
+    </select>
+
+    <label>🎯 Seuil :</label>
+    <input type="number" name="cut" value="{{ cut or '' }}" style="width: 80px;">
+    <button type="submit">Appliquer</button>
+</form>
+
+<div class="match-result-card">
+    <div class="team">
+        <img src="{{ home_logo }}" alt="{{ match.home_team }}" class="team-logo">
+        <div class="team-name">{{ match.home_team }}</div>
+    </div>
+    <div class="score-block">
+        <div class="match-date">{{ match.date[:10] }} {{ match.time or '' }}</div>
+        {% if match.home_goals is not none and match.away_goals is not none %}
+            <div class="score">{{ match.home_goals }} - {{ match.away_goals }}</div>
+            <div class="match-status">TERMINÉ</div>
+            {% if referee %}
+                <div class="referee-block">Arbitre : <strong>{{ referee }}</strong></div>
+            {% endif %}
+        {% else %}
+            <div class="score">–</div>
+            <div class="match-status">À venir</div>
+        {% endif %}
+    </div>
+    <div class="team">
+        <img src="{{ away_logo }}" alt="{{ match.away_team }}" class="team-logo">
+        <div class="team-name">{{ match.away_team }}</div>
+    </div>
+</div>
+
+<div class="event-section">
+    <h2>📋 Événements du match</h2>
+    {% set first_half_events = events | selectattr('minute_int', 'lt', 46) | list %}
+    {% set second_half_events = events | selectattr('minute_int', 'ge', 46) | list %}
+    {% set first_half_score = namespace(home=0, away=0) %}
+    {% for e in first_half_events if e.type == 'goal' %}
+        {% if e.side == 'home' %}{% set first_half_score.home = first_half_score.home + 1 %}{% else %}{% set first_half_score.away = first_half_score.away + 1 %}{% endif %}
+    {% endfor %}
+    {% set halves = [
+        ('1ère MI-TEMPS', first_half_events, first_half_score.home ~ ' - ' ~ first_half_score.away),
+        ('2ᵉ MI-TEMPS', second_half_events, match.home_goals ~ ' - ' ~ match.away_goals)
+    ] %}
+    {% for half_label, half_events, half_score in halves %}
+        <h3 class="half-title">{{ half_label }} <span style="float: right; color: gray">{{ half_score }}</span></h3>
+        <div class="event-columns-unified">
+            {% for event in half_events %}
+                <div class="event-line">
+                    {% if event.side == 'home' %}
+                        <div class="event-minute align-left">{{ event.minute }}</div>
+                        <div class="event-side left">
+                            {{ include_icon(event) }}
+                            {% if event.type == 'goal' and event.score_after %}
+                                <span class="event-score">{{ event.score_after }}</span>
+                            {% endif %}
+                            {% if event.type == 'goal' %}
+                                <strong>{{ event.player }}</strong>{% if event.assist %}<small>{{ event.assist }}</small>{% endif %}
+                            {% elif event.type == 'subst' %}
+                                <strong>{{ event.player_in }}</strong><span class="sub-out">{{ event.player_out }}</span>{{ event.comments }}
+                            {% else %}
+                                <strong>{{ event.player }}</strong>{{ event.comments }}
+                            {% endif %}
+                        </div>
+                        <div class="event-side right"></div>
+                        <div class="event-minute"></div>
+                    {% else %}
+                        <div class="event-minute"></div>
+                        <div class="event-side left"></div>
+                        <div class="event-side right">
+                            {% if event.type == 'goal' %}
+                                {% if event.assist %}<small>{{ event.assist }}</small>{% endif %}
+                                <strong>{{ event.player }}</strong>
+                                {% if event.score_after %}<span class="event-score">{{ event.score_after }}</span>{% endif %}
+                                {{ include_icon(event) }}
+                            {% elif event.type == 'subst' %}
+                                <strong>{{ event.player_in }}</strong><span class="sub-out">{{ event.player_out }}</span>{{ event.comments }}{{ include_icon(event) }}
+                            {% else %}
+                                <strong>{{ event.player }}</strong>{{ include_icon(event) }}{{ event.comments }}
+                            {% endif %}
+                        </div>
+                        <div class="event-minute align-right">{{ event.minute }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+</div>
+
+<div class="player-stats-section">
+    <h2>📊 Statistiques détaillées des joueurs</h2>
+
+    <div class="team-toggle-buttons">
+        <button class="filter-btn active" data-filter="overall">Overall</button>
+        <button class="filter-btn" data-filter="home">Home</button>
+        <button class="filter-btn" data-filter="away">Away</button>
+    </div>
+
+    <table class="player-stats-table">
+        <thead>
+            <tr>
+                <th>Joueur</th>
+                <th>Équipe</th>
+                <th>Minutes</th>
+                <th>Buts</th>
+                <th>Passes</th>
+                <th>Tirs</th>
+                <th>Tirs cadrés</th>
+                <th>Penalty marqués</th>
+                <th>Penalty manqués</th>
+                <th>Cartons (J/R)</th>
+                <th>xG</th>
+                <th>xA</th>
+            </tr>
+        </thead>
+        <tbody id="playerStatsBody">
+            {% for name, team_id, minutes, goals, assists, shots_total, shots_on_target, penalty_scored, penalty_missed, yellow_cards, red_cards, xg, xa, team_name, team_logo in player_stats %}
+            {% set side = 'home' if team_id == match.home_team_id else 'away' %}
+            <tr data-side="{{ side }}">
+                <td>{{ name }}</td>
+                <td>
+                    <img src="{{ team_logo }}" alt="{{ team_name }}" class="inline-logo" style="height: 20px; margin-right: 5px;">
+                    {{ team_name }}
+                </td>
+                <td>{{ minutes or 0 }}</td>
+                <td>{{ goals or 0 }}</td>
+                <td>{{ assists or 0 }}</td>
+                <td>{{ shots_total or 0 }}</td>
+                <td>{{ shots_on_target or 0 }}</td>
+                <td>{{ penalty_scored or 0 }}</td>
+                <td>{{ penalty_missed or 0 }}</td>
+                <td>{{ yellow_cards or 0 }} / {{ red_cards or 0 }}</td>
+                <td>{{ "%.2f"|format(xg or 0) }}</td>
+                <td>{{ "%.2f"|format(xa or 0) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div class="pagination-controls" id="pagination-container"></div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const filterButtons = document.querySelectorAll(".filter-btn");
+        const tableHeaders = document.querySelectorAll(".player-stats-table th");
+        const tbody = document.querySelector("#playerStatsBody");
+        const paginationContainer = document.querySelector("#pagination-container");
+    
+        let currentPage = 1;
+        let currentSide = "overall";
+        let currentSortBy = "minutes";
+        let currentSortOrder = "desc";
+    
+        function loadPlayerStats(page = 1, side = "overall") {
+            const stat = "{{ stat }}";
+            const cut = "{{ cut or '' }}";
+            const fixtureId = "{{ match.id }}";
+    
+            fetch(`/match/${fixtureId}/stats?side=${side}&stat=${stat}&cut=${cut}&page=${page}&sort_by=${currentSortBy}&sort_order=${currentSortOrder}`)
+                .then(response => response.json())
+                .then(data => {
+                    tbody.innerHTML = "";
+    
+                    data.players.forEach(player => {
+                        const tr = document.createElement("tr");
+                        tr.setAttribute("data-side", player.side);
+                        tr.innerHTML = `
+                            <td>${player.name}</td>
+                            <td><img src="${player.team_logo}" alt="${player.team_name}" class="inline-logo" style="height: 20px; margin-right: 5px;">${player.team_name}</td>
+                            <td>${player.minutes}</td>
+                            <td style="color: ${player.goals >= 1 ? 'green' : ''};">${player.goals}</td>
+                            <td style="color: ${player.assists >= 1 ? 'blue' : ''};">${player.assists}</td>
+                            <td>${player.shots_total}</td>
+                            <td>${player.shots_on_target}</td>
+                            <td>${player.penalty_scored}</td>
+                            <td>${player.penalty_missed}</td>
+                            <td>${player.yellow_cards} / ${player.red_cards}</td>
+                            <td>${player.xg.toFixed(2)}</td>
+                            <td>${player.xa.toFixed(2)}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+    
+                    paginationContainer.innerHTML = `
+                        ${data.page > 1 ? `<a href="#" data-page="${data.page - 1}" data-side="${side}" class="page-link">&laquo; Précédent</a>` : ''}
+                        <span>Page ${data.page}</span>
+                        ${data.has_next ? `<a href="#" data-page="${data.page + 1}" data-side="${side}" class="page-link">Suivant &raquo;</a>` : ''}
+                    `;
+    
+                    document.querySelectorAll(".page-link").forEach(link => {
+                        link.addEventListener("click", function (e) {
+                            e.preventDefault();
+                            currentPage = parseInt(this.dataset.page);
+                            currentSide = this.dataset.side;
+                            loadPlayerStats(currentPage, currentSide);
+                        });
+                    });
+                });
+        }
+    
+        filterButtons.forEach(button => {
+            button.addEventListener("click", function () {
+                filterButtons.forEach(b => b.classList.remove("active"));
+                this.classList.add("active");
+    
+                currentSide = this.dataset.filter;
+                currentPage = 1;
+                loadPlayerStats(currentPage, currentSide);
+            });
+        });
+    
+        tableHeaders.forEach((th, index) => {
+            const columnNames = ["name", "team_name", "minutes", "goals", "assists", "shots_total", "shots_on_target", "penalty_scored", "penalty_missed", "yellow_cards", "xg", "xa"];
+            if (index < columnNames.length) {
+                th.addEventListener("click", () => {
+                    const selectedColumn = columnNames[index];
+                    if (currentSortBy === selectedColumn) {
+                        currentSortOrder = currentSortOrder === "asc" ? "desc" : "asc";
+                    } else {
+                        currentSortBy = selectedColumn;
+                        currentSortOrder = "desc";
+                    }
+                    loadPlayerStats(currentPage, currentSide);
+                });
+            }
+        });
+    
+        // Initial load
+        loadPlayerStats();
+    });
+    </script>
+    
+    
+
+{% else %}
+<p>{{ message }}</p>
+{% endif %}
+{% endblock %}
+
+{% macro include_icon(event) %}
+<span class="event-icon">
+    {% set type = event.type|lower %}
+    {% set detail = event.detail|lower %}
+    {% if type == 'card' %}
+        {% if 'yellow' in detail %}
+        <img src="{{ url_for('static', filename='icons/yellow-card.svg') }}" alt="Carton jaune" style="height: 24px; background-color: #FFD700; padding: 1px; border-radius: 4px;">
+        {% elif 'red' in detail %}
+        <img src="{{ url_for('static', filename='icons/red-card.svg') }}" alt="Carton rouge" style="height: 24px; background-color: #F35A55; padding: 1px; border-radius: 4px;">
+        {% else %}📌{% endif %}
+    {% elif type == 'var' %}
+        <img src="{{ url_for('static', filename='icons/var-icon.svg') }}" alt="VAR" style="height: 20px;">
+    {% elif type == 'goal' and 'own goal' in detail %}
+        <img src="{{ url_for('static', filename='icons/own-goal.svg') }}" alt="But contre son camp" style="height: 20px;">
+    {% elif type == 'goal' and 'missed' in detail %}
+        <img src="{{ url_for('static', filename='icons/penalty-missed-red.svg') }}" alt="Penalty raté" style="height: 20px;">
+    {% elif type == 'goal' and 'penalty' in detail %}
+        <img src="{{ url_for('static', filename='icons/penalty.svg') }}" alt="Penalty marqué" style="height: 20px;">
+    {% elif type == 'subst' %}
+        <img src="{{ url_for('static', filename='icons/substitution.svg') }}" alt="Remplacement" style="height: 20px;">
+    {% elif type == 'goal' %}
+        <img src="{{ url_for('static', filename='icons/ball.svg') }}" alt="But" style="height: 20px;">
+    {% else %}📌{% endif %}
+</span>
+{% endmacro %}

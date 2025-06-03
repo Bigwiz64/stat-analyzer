@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Chart.js Drag Test</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2em;
+    }
+    #chart-container {
+      max-width: 800px;
+      margin: auto;
+    }
+    canvas {
+      cursor: grab;
+    }
+  </style>
+</head>
+<body>
+  <h2>✅ Test drag sur les barres</h2>
+  <div id="chart-container">
+    <canvas id="chartCanvas" height="150"></canvas>
+  </div>
+
+  <!-- Chart.js v3 + dragdata plugin compatibles -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-dragdata@2.0.0"></script>
+
+  <script>
+    Chart.register(window['chartjs-plugin-dragdata']);
+
+    const ctx = document.getElementById('chartCanvas').getContext('2d');
+
+    const myChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Match 1', 'Match 2', 'Match 3', 'Match 4'],
+        datasets: [{
+          label: 'Buts',
+          data: [1, 0, 2, 0],
+          backgroundColor: ['#4CAF50', '#F44336', '#4CAF50', '#F44336']
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 5
+          }
+        },
+        plugins: {
+          dragData: {
+            round: 1,
+            showTooltip: true,
+            onDragStart: function (e, datasetIndex, index, value) {
+              console.log("Début du drag");
+            },
+            onDrag: function (e, datasetIndex, index, value) {
+              console.log("Valeur en cours : ", value);
+            },
+            onDragEnd: function (e, datasetIndex, index, value) {
+              alert(`Nouvelle valeur pour ${e.chart.data.labels[index]} : ${value}`);
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

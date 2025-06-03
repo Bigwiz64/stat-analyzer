@@ -1,0 +1,28 @@
+# Environnement Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# VS Code
+.vscode/
+
+# Environnement virtuel (si tu en as un)
+env/
+venv/
+
+# Fichiers secrets
+.env
+
+# Données de logs ou temporaires
+*.log
+*.sqlite3
+*.bak
+
+# Dossiers de cache
+.cache/
+
+.history/
+
+#teste

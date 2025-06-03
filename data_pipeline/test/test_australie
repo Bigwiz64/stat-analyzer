@@ -1,0 +1,20 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+import sqlite3
+from data_pipeline.api_utils.path_utils import get_db_path
+
+DB_PATH = get_db_path()
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+
+cursor.execute("SELECT id, name, country, logo, flag FROM leagues WHERE name LIKE '%A-League%'")
+rows = cursor.fetchall()
+
+print("📁 Base utilisée :", DB_PATH)
+if rows:
+    for row in rows:
+        print(row)
+else:
+    print("❌ La A-League n’est pas présente dans la table leagues.")

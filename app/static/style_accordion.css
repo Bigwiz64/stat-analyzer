@@ -1,0 +1,109 @@
+/* Conteneur principal centré */
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+.accordion-country {
+    margin-bottom: 2em;
+}
+
+.country-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+
+.country-header h2 {
+    font-size: 1.5em;
+    color: #2E3244;
+}
+
+.flag {
+    width: 24px;
+    height: 16px;
+    object-fit: contain;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+/* Accordéon */
+.league-accordion {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.league-accordion summary {
+    font-weight: bold;
+    padding: 10px 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #eaeaea;
+    transition: background-color 0.3s ease;
+}
+
+.league-accordion[open] summary {
+    background-color: #d8d8d8;
+}
+
+.league-accordion summary:hover {
+    background-color: #ddd;
+}
+
+.league-logo {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+
+.match-list {
+    list-style: none;
+    padding: 0 15px 10px;
+    margin: 0;
+}
+
+.match-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+.match-item:hover {
+    background-color: #f0f0f0;
+    cursor: pointer;
+}
+
+.match-teams a {
+    text-decoration: none;
+    color: #2E3244;
+    font-weight: 500;
+}
+
+.match-teams a:hover {
+    text-decoration: none;
+}
+
+.match-info {
+    font-weight: bold;
+}
+
+.match-score {
+    color: #2E3244;
+}
+
+.match-time {
+    color: #666;
+}
+.league-accordion[open] .match-list {
+    margin-top: 10px; /* Espace entre l'en-tête et la liste */
+}

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Calque_2" data-name="Calque 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 62.92 30.6">
+  <defs>
+    <style>
+      .cls-1, .cls-2 {
+        isolation: isolate;
+      }
+
+      .cls-3 {
+        fill: #eb6c37;
+      }
+
+      .cls-4 {
+        letter-spacing: -.05em;
+      }
+
+      .cls-5 {
+        letter-spacing: -.02em;
+      }
+
+      .cls-2 {
+        fill: #fff;
+        font-family: Kuunari-BlackItalic, Kuunari;
+        font-size: 17.37px;
+        font-style: italic;
+        font-weight: 800;
+      }
+
+      .cls-6 {
+        letter-spacing: 0em;
+      }
+    </style>
+  </defs>
+  <g id="Calque_1-2" data-name="Calque 1">
+    <g>
+      <g class="cls-1">
+        <text class="cls-2" transform="translate(0 27.18)"><tspan x="0" y="0">PEA</tspan><tspan class="cls-5" x="24.02" y="0">K</tspan><tspan class="cls-6" x="32.25" y="0">S</tspan><tspan class="cls-4" x="40.34" y="0">TA</tspan><tspan x="54.51" y="0">T</tspan></text>
+      </g>
+      <g>
+        <polygon class="cls-3" points="37.75 8.04 37.75 12.08 40.5 12.08 40.5 5.34 37.75 8.04"/>
+        <polygon class="cls-3" points="33.9 9.25 33.9 12.08 36.7 12.08 36.7 9.25 35.29 10.66 33.9 9.25"/>
+        <polygon class="cls-3" points="30.48 8.98 30.48 12.08 32.82 12.08 32.82 8.41 31.95 7.54 30.48 8.98"/>
+        <polygon class="cls-3" points="27.32 12.08 29.39 12.08 29.39 10.06 27.32 12.08"/>
+        <polygon class="cls-3" points="42.91 0 41.57 4.1 40.82 3.41 35.27 8.99 31.93 6.1 25.62 12.08 23.64 12.08 31.88 4.06 35.27 6.98 39.78 2.47 38.96 1.71 42.91 0"/>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Matchs de {{ team_name }}{% endblock %}
+
+{% block nav %}
+    <a href="{{ url_for('main.index') }}" class="nav-button">← Retour à la liste des matchs</a>
+{% endblock %}
+
+{% block content %}
+    <div class="team-header">
+        {% if logo %}
+            <img src="{{ logo }}" alt="Logo {{ team_name }}" class="team-logo">
+        {% endif %}
+        <h1>📋 Matchs de {{ team_name }}</h1>
+    </div>
+
+    <div class="team-summary">
+        <h2>📊 Statistiques de la saison</h2>
+        <ul class="team-stats">
+            <li><strong>Matchs joués :</strong> {{ stats.joués }}</li>
+            <li><strong>Victoires :</strong> {{ stats.gagnés }}</li>
+            <li><strong>Nuls :</strong> {{ stats.nuls }}</li>
+            <li><strong>Défaites :</strong> {{ stats.perdus }}</li>
+            <li><strong>Buts marqués :</strong> {{ stats.marqués }}</li>
+            <li><strong>Buts encaissés :</strong> {{ stats.encaissés }}</li>
+            {% if classement_attaque %}
+                <li><strong>Classement attaque :</strong> {{ classement_attaque }}ᵉ</li>
+            {% endif %}
+            {% if classement_defense %}
+                <li><strong>Classement défense :</strong> {{ classement_defense }}ᵉ</li>
+            {% endif %}
+        </ul>
+
+        <div class="chart-row">
+            <div class="chart-box">
+                <h3>Résultats</h3>
+                <canvas id="resultChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h3>Buts</h3>
+                <canvas id="goalChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <h2 style="margin-top: 40px;">📅 Liste des matchs</h2>
+
+    {% if matches %}
+        <ul class="match-list">
+            {% for match in matches %}
+                <li>
+                    <a href="{{ url_for('main.match_redirect', fixture_id=match.id) }}">
+                        {{ match.home_team }} vs {{ match.away_team }} ({{ match.score }})
+                    </a> – {{ match.date }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Aucun match trouvé pour cette équipe.</p>
+    {% endif %}
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Données JSON injectées -->
+    <script id="team-stats-data" type="application/json">
+    {
+        "results": [{{ stats.gagnés }}, {{ stats.nuls }}, {{ stats.perdus }}],
+        "goals": [{{ stats.marqués }}, {{ stats.encaissés }}]
+    }
+    </script>
+
+    <script>
+        const rawData = document.getElementById("team-stats-data").textContent;
+        const parsedData = JSON.parse(rawData);
+
+        new Chart(document.getElementById("resultChart"), {
+            type: "doughnut",
+            data: {
+                labels: ["Victoires", "Nuls", "Défaites"],
+                datasets: [{
+                    data: parsedData.results,
+                    backgroundColor: ["#4CAF50", "#FFC107", "#F44336"],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: { position: "bottom" }
+                }
+            }
+        });
+
+        new Chart(document.getElementById("goalChart"), {
+            type: "doughnut",
+            data: {
+                labels: ["Buts marqués", "Buts encaissés"],
+                datasets: [{
+                    data: parsedData.goals,
+                    backgroundColor: ["#2196F3", "#9E9E9E"],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: { position: "bottom" }
+                }
+            }
+        });
+    </script>
+{% endblock %}

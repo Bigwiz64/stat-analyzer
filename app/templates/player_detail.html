@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}Historique du joueur{% endblock %}
+
+{% block nav %}
+    {% if from_match %}
+        <a href="{{ url_for('main.match_detail', fixture_id=from_match) }}" class="nav-button match">
+            ⚽ Retour au match
+        </a>
+    {% else %}
+        <a href="{{ url_for('main.index') }}" class="nav-button">
+            ← Retour à la liste des matchs
+        </a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    <h1>
+        Historique du joueur 
+        {% if player_name %}{{ player_name }}{% else %}#{{ player_id }}{% endif %}
+    </h1>
+
+    <form method="get" class="player-filter-form">
+        <input type="hidden" name="from_match" value="{{ from_match }}">
+        
+        <label>Stat :</label>
+        <select name="stat">
+            <option value="goals" {% if stat == 'goals' %}selected{% endif %}>Buts</option>
+            <option value="assists" {% if stat == 'assists' %}selected{% endif %}>Passes</option>
+            <option value="minutes" {% if stat == 'minutes' %}selected{% endif %}>Minutes</option>
+        </select>
+
+        <label>Seuil :</label>
+        <input type="number" name="cut" value="{{ cut or '' }}">
+
+        <label>Nombre de matchs :</label>
+        <input type="number" name="limit" value="{{ limit or 10 }}">
+
+        <button type="submit">Filtrer</button>
+    </form>
+
+    <table class="player-stats-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Match</th>
+                <th>{{ stat | capitalize }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for match in stats %}
+                <tr class="{% if cut is not none %}{{ 'passed' if match.value >= cut else 'failed' }}{% endif %}">
+                    <td>{{ match.date }}</td>
+                    <td>{{ match.home }} vs {{ match.away }}</td>
+                    <td>{{ match.value }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if from_match %}
+<table class="inline-player-table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Match</th>
+            <th>{{ stat | capitalize }}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for match in stats %}
+        <tr class="{% if cut is not none %}{{ 'passed' if match.value >= cut else 'failed' }}{% endif %}">
+            <td>{{ match.date }}</td>
+            <td>{{ match.home }} vs {{ match.away }}</td>
+            <td>{{ match.value }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<!-- version page entière normale -->
+...
+{% endif %}
+
+{% endblock %}

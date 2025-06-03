@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Calendrier - PeakStat{% endblock %}
+
+{% block content %}
+
+<header class="main-header">
+    <div class="logo">⚽ PeakStat</div>
+    <nav>
+        <a href="{{ url_for('main.index') }}" class="nav-button">🏠 Accueil</a>
+        <a href="{{ url_for('main.calendar') }}" class="nav-button">📅 Calendrier</a>
+    </nav>
+</header>
+
+<div class="container">
+    <h1>📅 Matchs du {{ selected_date }}</h1>
+
+    <div class="day-navigation">
+        {% for day in dates %}
+            <a href="{{ url_for('main.calendar') }}?date={{ day.date }}" class="day-item {% if day.is_selected %}selected{% endif %}">
+                {% if day.is_today %}Aujourd'hui{% else %}{{ day.label }}{% endif %}
+            </a>
+        {% endfor %}
+    </div>
+
+    {% if matches %}
+        <ul class="match-list">
+            {% for match in matches %}
+                <li>
+                    <div class="match-teams">
+                        <a href="{{ url_for('main.match_redirect', fixture_id=match.id) }}">
+                            {{ match.home_team }} <strong>vs</strong> {{ match.away_team }}
+                        </a>
+                    </div>
+                    <div class="match-info">
+                        {% if match.home_goals is not none and match.away_goals is not none %}
+                            <span class="match-score">
+                                {{ match.home_goals }} - {{ match.away_goals }}
+                            </span>
+                        {% else %}
+                            <span class="match-time">{{ match.date[11:16] }}</span>
+                        {% endif %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>⚠️ Aucun match pour ce jour.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

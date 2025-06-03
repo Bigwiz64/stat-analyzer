@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block container_class %}container index-container{% endblock %}
+
+
+{% block title %}PeakStat - Matchs du Jour{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('main.index') }}" class="nav-button">🏠 Accueil</a>
+<a href="{{ url_for('main.calendar') }}" class="nav-button">🗕️ Calendrier</a>
+{% endblock %}
+
+{% block content %}
+<div class="container index-container">
+
+    {% set country_names = {
+        'France': 'France', 'England': 'Angleterre', 'Germany': 'Allemagne', 'Italy': 'Italie',
+        'Spain': 'Espagne', 'Portugal': 'Portugal', 'Netherlands': 'Pays-Bas',
+        'Turkey': 'Turquie', 'Scotland': 'Écosse', 'Austria': 'Autriche', 'Australia': 'Australie'
+    } %}
+
+    <div class="header-bar">
+        <div class="status-toggle">
+            <a href="{{ url_for('main.index') }}" class="toggle-btn {% if not status_filter %}active{% endif %}">📋 Tous</a>
+            <a href="{{ url_for('main.index', status='played') }}" class="toggle-btn {% if status_filter == 'played' %}active{% endif %}">✅ Joués</a>
+            <a href="{{ url_for('main.index', status='upcoming') }}" class="toggle-btn {% if status_filter == 'upcoming' %}active{% endif %}">⏳ À venir</a>
+        </div>
+
+        <div class="date-selector">
+            <a href="{{ url_for('main.index', date=(selected_date_obj - timedelta(days=1)).strftime('%Y-%m-%d')) }}" class="date-arrow">
+                <img src="{{ url_for('static', filename='icons/arrow-left.svg') }}" alt="←" class="arrow-icon">
+            </a>
+
+            <button id="toggle-date-dropdown" class="date-center-button" type="button">
+                {{ selected_date_obj.strftime('%d/%m') }} {{ selected_day_abbr }}
+            </button>
+
+            <a href="{{ url_for('main.index', date=(selected_date_obj + timedelta(days=1)).strftime('%Y-%m-%d')) }}" class="date-arrow">
+                <img src="{{ url_for('static', filename='icons/arrow-right.svg') }}" alt="→" class="arrow-icon">
+            </a>
+
+            <div class="date-dropdown" id="date-dropdown">
+                {% for day in days %}
+                    <a href="{{ url_for('main.index', date=day.date) }}"
+                    class="dropdown-item {% if day.is_selected %}selected{% endif %}">
+                        {% if day.is_today %}AJD{% else %}{{ day.label }} {{ day.weekday }}{% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% if matches_by_country_league %}
+        {% set ordered_priority = ['France', 'England', 'Italy', 'Germany', 'Spain'] %}
+        {% set all_countries = matches_by_country_league.keys()|list %}
+        {% set sorted_countries = ordered_priority + (all_countries | reject('in', ordered_priority) | list | sort) %}
+
+        {% for country in sorted_countries %}
+            {% if country in matches_by_country_league %}
+                {% set leagues = matches_by_country_league[country] %}
+                <div class="accordion-country">
+                    {% set first_fixture = leagues.values()|list|first|first %}
+                    <div class="country-header">
+                        {% if first_fixture and first_fixture.country_flag %}
+                            <img src="{{ first_fixture.country_flag }}" alt="flag" class="flag">
+                        {% endif %}
+                        <h2>{{ country_names.get(country, country) }}</h2>
+                    </div>
+
+                    {% for league_name, fixtures in leagues.items() %}
+                        <details class="league-accordion">
+                            <summary>
+                                {% if fixtures and fixtures[0].league_logo %}
+                                    <img src="{{ fixtures[0].league_logo }}" alt="logo" class="league-logo">
+                                {% endif %}
+                                {{ league_name }} ({{ fixtures|length }} matchs)
+                            </summary>
+                            <ul class="match-list">
+                                {% for match in fixtures %}
+                                    <a href="{{ url_for('main.match_redirect', fixture_id=match.id) }}" class="match-item-link">
+                                        <li class="match-card">
+                                            <div class="match-row">
+                                                <div class="team-block left-team">
+                                                    {% if match.home_team_logo %}
+                                                        <img src="{{ match.home_team_logo }}" alt="{{ match.home_team }}" class="team-logo">
+                                                    {% endif %}
+                                                    <span class="team-name">{{ match.home_team }}</span>
+                                                </div>
+                                                <div class="score-block">
+                                                    {% if match.home_goals is not none and match.away_goals is not none %}
+                                                        <span class="score">{{ match.home_goals }} - {{ match.away_goals }}</span>
+                                                    {% else %}
+                                                        <span class="score match-time">🕒 {{ match.date[11:16] }}</span>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="team-block right-team">
+                                                    <span class="team-name">{{ match.away_team }}</span>
+                                                    {% if match.away_team_logo %}
+                                                        <img src="{{ match.away_team_logo }}" alt="{{ match.away_team }}" class="team-logo">
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </li>
+                                    </a>
+                                {% endfor %}
+                            </ul>
+                        </details>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <div class="no-match-message">
+            🎈 Aucun match prévu pour cette journée.<br>Reviens bientôt !
+        </div>
+    {% endif %}
+
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const toggleBtn = document.getElementById("toggle-date-dropdown");
+        const dropdown = document.getElementById("date-dropdown");
+
+        if (!toggleBtn || !dropdown) {
+            console.log("❌ Bouton ou menu non trouvé !");
+            return;
+        }
+
+        console.log("✅ Script chargé, bouton actif.");
+
+        toggleBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            dropdown.classList.toggle("visible");
+        });
+
+        document.addEventListener("click", function (e) {
+            if (!dropdown.contains(e.target) && e.target !== toggleBtn) {
+                dropdown.classList.remove("visible");
+            }
+        });
+    });
+</script>
+{% endblock %}
