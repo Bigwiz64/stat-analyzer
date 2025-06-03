@@ -302,6 +302,7 @@ document.getElementById("slider-right").addEventListener("click", () => {
         home_team_id: m.home_team_id,
         away_team_id: m.away_team_id
       }));
+      const fixtureIds = data.history.map(m => m.fixture_id);
 
       let colors = [];
       if (filter === "first_half") {
@@ -350,10 +351,20 @@ document.getElementById("slider-right").addEventListener("click", () => {
             }
           }],
           scores: scores,
-          teams: teamInfos
+          teams: teamInfos,
+          fixtureIds: fixtureIds
         },
         options: {
           responsive: true,
+          onClick: function(evt, elements) {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              const fixtureId = this.data.fixtureIds[index];
+              if (fixtureId) {
+                window.open(`/match/${fixtureId}`, "_blank");
+              }
+            }
+          },
           animation: { duration: 400 },
           plugins: {
             tooltip: {
