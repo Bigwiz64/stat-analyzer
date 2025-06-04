@@ -58,12 +58,15 @@ def get_season_for_fixture(date_str, league_id):
     year = date_obj.year
     month = date_obj.month
 
-    # Certaines ligues comme Norvège (103) jouent sur l’année civile
-    if league_id == 103:
+    # Ligues qui jouent sur l’année civile (printemps → automne)
+    leagues_calendar_year = [103, 113, 244, 119]  # Norvège, Suède, Finlande, Danemark
+
+    if league_id in leagues_calendar_year:
         return year
 
-    # Pour les autres (saison été → printemps)
+    # Autres ligues : saison classique été → printemps
     return year if month >= 7 else year - 1
+
 
 
 def get_match_with_cumulative_player_stats(fixture_id):

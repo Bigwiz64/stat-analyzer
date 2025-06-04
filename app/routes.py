@@ -127,12 +127,22 @@ from .api_sport import get_team_squad  # en haut du fichier
 @main.route('/match/<int:fixture_id>/preview')
 def match_preview(fixture_id):
     from datetime import datetime
-
     match = get_match_with_cumulative_player_stats(fixture_id)
-    print("✅ Match récupéré :", match)
 
     if not match:
         return render_template("match_preview.html", match=None)
+
+    # Formatage de la date
+    raw_date = match.get("date")
+    try:
+        date_obj = datetime.strptime(raw_date, "%Y-%m-%d")
+    except Exception:
+        date_obj = datetime.today()
+
+    match["formatted_date"] = date_obj.strftime("%Y-%m-%d")
+
+    return render_template("match_preview.html", match=match)
+
 
     # ⬇️ FORMATAGE DE LA DATE ET DE L’HEURE
     raw_date = match.get("date")
