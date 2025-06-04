@@ -613,3 +613,107 @@ def repair_player_stats_from_events(fixture_id):
         conn.commit()
         print(f"✅ Stats corrigées via events pour match {fixture_id}")
 
+def fallback_player_stats_from_events(fixture_id):
+    import sqlite3
+    from data_pipeline.api_utils.utils_api import get_api_json
+    from app.data_access import DB_PATH
+
+    print(f"🔧 Fallback : reconstruction des stats via événements pour match {fixture_id}")
+
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+
+            # Supprime les stats existantes
+            cursor.execute("DELETE FROM player_stats WHERE fixture_id = ?", (fixture_id,))
+
+            # Récupère les événements depuis l'API
+            events = get_api_json("fixtures/events", params={"fixture": fixture_id}).get("response", [])
+
+            # Récupération automatique de la saison
+            cursor.execute("SELECT season FROM fixtures WHERE id = ?", (fixture_id,))
+            season_row = cursor.fetchone()
+            season_str = season_row[0] if season_row else "2025-2026"  # Valeur par défaut
+
+            # Initialise les stats
+            player_stats = {}
+
+            for event in events:
+                player_id = event.get("player", {}).get("id")
+                team_id = event.get("team", {}).get("id")
+                event_type = event.get("type")
+                detail = event.get("detail")
+                minute = event.get("time", {}).get("elapsed", 0)
+
+                if not player_id or not team_id:
+                    continue
+
+                if player_id not in player_stats:
+                    player_stats[player_id] = {
+                        "team_id": team_id,
+                        "goals": 0,
+                        "assists": 0,
+                        "yellow_cards": 0,
+                        "red_cards": 0,
+                        "minutes": 0
+                    }
+
+                if event_type == "Goal":
+                    player_stats[player_id]["goals"] += 1
+                    if "assist" in event and event["assist"] and "id" in event["assist"]:
+                        assist_id = event["assist"]["id"]
+                        if assist_id not in player_stats:
+                            player_stats[assist_id] = {
+                                "team_id": team_id,
+                                "goals": 0,
+                                "assists": 0,
+                                "yellow_cards": 0,
+                                "red_cards": 0,
+                                "minutes": 0
+                            }
+                        player_stats[assist_id]["assists"] += 1
+
+                elif event_type == "Card":
+                    if detail == "Yellow Card":
+                        player_stats[player_id]["yellow_cards"] += 1
+                    elif detail == "Red Card":
+                        player_stats[player_id]["red_cards"] += 1
+
+                elif event_type == "subst":
+                    player_stats[player_id]["minutes"] = minute
+
+            # Enrichir les joueurs (si manquants)
+            for player_id in player_stats:
+                cursor.execute("SELECT 1 FROM players WHERE id = ?", (player_id,))
+                if cursor.fetchone() is None:
+                    # 🔄 Tentative de récupération du nom depuis l'API
+                    player_api = get_api_json("players", params={"id": player_id}).get("response", [])
+                    if player_api:
+                        name = player_api[0]["player"]["name"]
+                    else:
+                        name = "Inconnu"
+
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO players (id, name)
+                        VALUES (?, ?)
+                    """, (player_id, name))
+
+
+            # Insertion finale dans player_stats
+            for player_id, stats in player_stats.items():
+                cursor.execute("""
+                    INSERT OR REPLACE INTO player_stats (
+                        player_id, fixture_id, team_id,
+                        goals, assists, yellow_cards, red_cards, minutes, season
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    player_id, fixture_id, stats["team_id"],
+                    stats["goals"], stats["assists"],
+                    stats["yellow_cards"], stats["red_cards"],
+                    stats["minutes"], season_str
+                ))
+
+            print(f"✅ Fallback terminé pour le match {fixture_id}")
+
+    except Exception as e:
+        print(f"❌ Erreur fallback pour {fixture_id} : {e}")

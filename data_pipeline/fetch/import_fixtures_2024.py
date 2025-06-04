@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from data_pipeline.api_utils.utils_api import get_api_json
 from data_pipeline.api_utils.path_utils import get_db_path
-from app.data_access import repair_player_stats_from_events
+from app.data_access import repair_player_stats_from_events, fallback_player_stats_from_events
+from data_pipeline.tools.update_unknown_players import update_unknown_players
 
 # 🔐 Chargement .env
 load_dotenv()
@@ -32,7 +33,7 @@ def get_season_from_date(date_str, league_id):
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    103
+    71
 ]
 
 SEASON_BY_LEAGUE = {
@@ -54,25 +55,32 @@ def insert_player_stats(fixture_id, season_str):
     count = cursor.fetchone()[0]
     cursor.execute("SELECT SUM(minutes), SUM(goals), SUM(assists) FROM player_stats WHERE fixture_id = ?", (fixture_id,))
     minutes_sum, goals_sum, assists_sum = cursor.fetchone()
+
     if count > 0 and (minutes_sum or 0) == 0 and (goals_sum or 0) == 0 and (assists_sum or 0) == 0:
         print(f"🔁 Réimport des stats joueurs pour match {fixture_id} (stats nulles)")
         cursor.execute("DELETE FROM player_stats WHERE fixture_id = ?", (fixture_id,))
     elif count > 0:
         print(f"✅ Stats joueurs déjà présentes pour match {fixture_id} — skip.")
         return
+
     try:
         stats_data = get_api_json("fixtures/players", params={"fixture": fixture_id}).get("response", [])
+        if not stats_data:
+            raise ValueError("⚠️ Aucun joueur retourné")
+
         for team_data in stats_data:
             team_id = team_data["team"]["id"]
             for entry in team_data["players"]:
                 player = entry["player"]
                 stats = entry["statistics"][0] if entry["statistics"] else {}
+
                 cursor.execute("""
                     INSERT OR IGNORE INTO players (id, name, position)
                     VALUES (?, ?, ?)
                 """, (
                     player["id"], player["name"], player.get("position", "")
                 ))
+
                 cursor.execute("""
                     INSERT OR REPLACE INTO player_stats (
                         player_id, fixture_id, team_id, minutes, goals, assists,
@@ -95,8 +103,12 @@ def insert_player_stats(fixture_id, season_str):
                     str(season_str)
                 ))
         print(f"✅ Stats joueurs insérées pour match {fixture_id}")
+
     except Exception as e:
         print(f"❌ Erreur stats joueurs match {fixture_id} : {e}")
+        print("⛑️ Tentative de secours via les événements du match...")
+        conn.commit()
+        fallback_player_stats_from_events(fixture_id)
 
 def insert_fixture_events(fixture_id):
     print(f"🔁 Réinsertion forcée des événements du match {fixture_id}")
@@ -158,7 +170,6 @@ def insert_fixture(data, season_str, verbose=True):
     insert_fixture_events(fixture["id"])
     repair_player_stats_from_events(fixture["id"])
 
-
 def fetch_fixtures(league_id):
     season_api = SEASON_BY_LEAGUE.get(league_id, DEFAULT_SEASON)
     season_str = format_season(season_api)
@@ -188,3 +199,6 @@ if __name__ == "__main__":
     seasons = cursor.fetchall()
     for season in seasons:
         print(" - Saison :", season[0])
+
+    # 🧼 Mise à jour auto des joueurs inconnus après import
+    update_unknown_players()
