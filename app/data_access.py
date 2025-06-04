@@ -2,6 +2,8 @@
 import sqlite3
 import os
 from data_pipeline.api_utils.path_utils import get_db_path
+from data_pipeline.api_utils.utils_dates import get_season_from_date
+
 
 
 def get_position_abbr(position):
@@ -547,17 +549,30 @@ def get_match_with_player_stats(fixture_id):
                 "minutes": row[3],
                 "team_id": row[4],
                 "goals": 0,
-                "assists": 0
+                "assists": 0,
+                "penalties": 0,
+                "yellow_cards": 0,
+                "red_cards": 0
             }
 
             # Comptage précis des buts et passes
             for e in events:
                 e_player_id, e_assist_id, e_type, e_detail = e
+            
                 if e_type == "Goal":
                     if e_player_id == player_id and e_assist_id != player_id:
                         player["goals"] += 1
+                        if e_detail == "Penalty":
+                            player["penalties"] += 1
                     if e_assist_id == player_id:
                         player["assists"] += 1
+            
+                if e_type == "Card" and e_player_id == player_id:
+                    if e_detail == "Yellow Card":
+                        player["yellow_cards"] += 1
+                    elif e_detail == "Red Card":
+                        player["red_cards"] += 1
+
 
             match_data["players"].append(player)
 
@@ -617,106 +632,102 @@ def repair_player_stats_from_events(fixture_id):
         print(f"✅ Stats corrigées via events pour match {fixture_id}")
 
 def fallback_player_stats_from_events(fixture_id):
-    import sqlite3
-    from data_pipeline.api_utils.utils_api import get_api_json
-    from app.data_access import DB_PATH
+    DB_PATH = get_db_path()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
 
     print(f"🔧 Fallback : reconstruction des stats via événements pour match {fixture_id}")
 
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
+    # ❌ Supprime les stats existantes du match
+    cursor.execute("DELETE FROM player_stats WHERE fixture_id = ?", (fixture_id,))
 
-            # Supprime les stats existantes
-            cursor.execute("DELETE FROM player_stats WHERE fixture_id = ?", (fixture_id,))
+    # Ὄc Infos du match pour la saison
+    cursor.execute("SELECT date, league_id FROM fixtures WHERE id = ?", (fixture_id,))
+    match = cursor.fetchone()
+    if not match:
+        print(f"⛔ Match {fixture_id} introuvable.")
+        return
+    match_date, league_id = match
+    season = get_season_from_date(match_date, league_id)
 
-            # Récupère les événements depuis l'API
-            events = get_api_json("fixtures/events", params={"fixture": fixture_id}).get("response", [])
+    # 📊 Tous les événements du match
+    cursor.execute("""
+        SELECT player_id, assist_id, type, detail, minute
+        FROM fixture_events
+        WHERE fixture_id = ?
+    """, (fixture_id,))
+    events = cursor.fetchall()
 
-            # Récupération automatique de la saison
-            cursor.execute("SELECT season FROM fixtures WHERE id = ?", (fixture_id,))
-            season_row = cursor.fetchone()
-            season_str = season_row[0] if season_row else "2025-2026"  # Valeur par défaut
+    player_stats = {}
 
-            # Initialise les stats
-            player_stats = {}
+    for e in events:
+        player_id, assist_id, e_type, detail, minute = e
+        if not player_id:
+            continue
 
-            for event in events:
-                player_id = event.get("player", {}).get("id")
-                team_id = event.get("team", {}).get("id")
-                event_type = event.get("type")
-                detail = event.get("detail")
-                minute = event.get("time", {}).get("elapsed", 0)
+        if player_id not in player_stats:
+            player_stats[player_id] = {
+                "goals": 0,
+                "assists": 0,
+                "yellow": 0,
+                "red": 0,
+                "in_min": 0,
+                "out_min": 90,
+                "active": False
+            }
 
-                if not player_id or not team_id:
-                    continue
+        stats = player_stats[player_id]
 
-                if player_id not in player_stats:
-                    player_stats[player_id] = {
-                        "team_id": team_id,
-                        "goals": 0,
-                        "assists": 0,
-                        "yellow_cards": 0,
-                        "red_cards": 0,
-                        "minutes": 0
-                    }
+        # ⚽ Buts
+        if e_type == "Goal" and player_id != assist_id:
+            stats["goals"] += 1
+            stats["active"] = True
+        # 🎫 Passes décisives
+        if assist_id and assist_id != player_id:
+            player_stats.setdefault(assist_id, {
+                "goals": 0, "assists": 0, "yellow": 0, "red": 0, "in_min": 0, "out_min": 90, "active": False
+            })
+            player_stats[assist_id]["assists"] += 1
+            player_stats[assist_id]["active"] = True
 
-                if event_type == "Goal":
-                    player_stats[player_id]["goals"] += 1
-                    if "assist" in event and event["assist"] and "id" in event["assist"]:
-                        assist_id = event["assist"]["id"]
-                        if assist_id not in player_stats:
-                            player_stats[assist_id] = {
-                                "team_id": team_id,
-                                "goals": 0,
-                                "assists": 0,
-                                "yellow_cards": 0,
-                                "red_cards": 0,
-                                "minutes": 0
-                            }
-                        player_stats[assist_id]["assists"] += 1
+        # 💛 Carton jaune
+        if e_type == "Card" and detail == "Yellow Card":
+            stats["yellow"] += 1
+            stats["active"] = True
 
-                elif event_type == "Card":
-                    if detail == "Yellow Card":
-                        player_stats[player_id]["yellow_cards"] += 1
-                    elif detail == "Red Card":
-                        player_stats[player_id]["red_cards"] += 1
+        # 💔 Carton rouge
+        if e_type == "Card" and detail == "Red Card":
+            stats["red"] += 1
+            stats["active"] = True
 
-                elif event_type == "subst":
-                    player_stats[player_id]["minutes"] = minute
+        # ↺ Substitutions (entrée/sortie)
+        if e_type == "subst":
+            if detail and "Substitution" in detail:
+                if assist_id == player_id:
+                    stats["out_min"] = minute
+                else:
+                    stats["in_min"] = minute
 
-            # Enrichir les joueurs (si manquants)
-            for player_id in player_stats:
-                cursor.execute("SELECT 1 FROM players WHERE id = ?", (player_id,))
-                if cursor.fetchone() is None:
-                    # 🔄 Tentative de récupération du nom depuis l'API
-                    player_api = get_api_json("players", params={"id": player_id}).get("response", [])
-                    if player_api:
-                        name = player_api[0]["player"]["name"]
-                    else:
-                        name = "Inconnu"
+    # ✅ Insère dans player_stats
+    for player_id, s in player_stats.items():
+        est_min = s["out_min"] - s["in_min"] if s["out_min"] and s["in_min"] is not None else (90 if s["active"] else 0)
+        cursor.execute("""
+            INSERT INTO player_stats (
+                player_id, fixture_id, team_id, minutes, goals, assists,
+                yellow_cards, red_cards, season
+            )
+            SELECT ?, ?, team_id, ?, ?, ?, ?, ?, ?
+            FROM fixture_events WHERE fixture_id = ? AND player_id = ? LIMIT 1
+        """, (
+            player_id, fixture_id, est_min, s["goals"], s["assists"],
+            s["yellow"], s["red"], season, fixture_id, player_id
+        ))
 
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO players (id, name)
-                        VALUES (?, ?)
-                    """, (player_id, name))
+        # ➕ Crée le joueur s'il n'existe pas
+        cursor.execute("SELECT 1 FROM players WHERE id = ?", (player_id,))
+        if not cursor.fetchone():
+            cursor.execute("INSERT OR IGNORE INTO players (id, name) VALUES (?, ?)", (player_id, "Inconnu"))
 
-
-            # Insertion finale dans player_stats
-            for player_id, stats in player_stats.items():
-                cursor.execute("""
-                    INSERT OR REPLACE INTO player_stats (
-                        player_id, fixture_id, team_id,
-                        goals, assists, yellow_cards, red_cards, minutes, season
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    player_id, fixture_id, stats["team_id"],
-                    stats["goals"], stats["assists"],
-                    stats["yellow_cards"], stats["red_cards"],
-                    stats["minutes"], season_str
-                ))
-
-            print(f"✅ Fallback terminé pour le match {fixture_id}")
-
-    except Exception as e:
-        print(f"❌ Erreur fallback pour {fixture_id} : {e}")
+    conn.commit()
+    conn.close()
+    print(f"✅ Fallback terminé pour le match {fixture_id}")

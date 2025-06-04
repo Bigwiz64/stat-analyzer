@@ -39,15 +39,11 @@
             <th data-sort="name">Joueur</th>
             <th data-sort="position">Pos</th>
             <th>Équipe</th>
-            <th data-sort="appearances">App.</th>
             <th data-sort="goals">Buts</th>
             <th data-sort="assists">Passes</th>
-            <th data-sort="minutes">Min</th>
-            <th data-sort="shots_total">Tirs</th>
-            <th data-sort="shots_on_target">Cadrés</th>
-            <th data-sort="goals_per_game">Buts/M</th>
-            <th data-sort="assists_per_game">Passes/M</th>
-            <th data-sort="minutes_per_game">Min/M</th>
+            <th data-sort="penalty">Penalty</th>
+            <th data-sort="yellow_cards">🟨</th>
+            <th data-sort="red_cards">🟥</th>
           </tr>
         </thead>
         <tbody>
@@ -56,15 +52,11 @@
             <td>{{ player.name }}</td>
             <td>{{ player.position_abbr }}</td>
             <td><img class="small-team-logo" src="{{ player.team_logo }}" alt="logo"/></td>
-            <td>{{ player.appearances_detail or player.appearances }}</td>
             <td>{{ player.goals }}</td>
             <td>{{ player.assists }}</td>
-            <td>{{ player.minutes }}</td>
-            <td>{{ player.shots_total }}</td>
-            <td>{{ player.shots_on_target }}</td>
-            <td>{{ player.goals_per_game }}</td>
-            <td>{{ player.assists_per_game }}</td>
-            <td>{{ player.minutes_per_game }}</td>
+            <td>{{ player.penalty or 0 }}</td>
+            <td>{{ player.yellow_cards or 0 }}</td>
+            <td>{{ player.red_cards or 0 }}</td>
           </tr>
           {% endfor %}
         </tbody>
