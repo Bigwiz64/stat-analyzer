@@ -126,57 +126,51 @@ from .api_sport import get_team_squad  # en haut du fichier
 
 @main.route('/match/<int:fixture_id>/preview')
 def match_preview(fixture_id):
-    from datetime import datetime
-    match = get_match_with_cumulative_player_stats(fixture_id)
+    from datetime import datetime, timezone
+    from app.data_access import (
+        get_match_with_player_stats,
+        get_match_with_cumulative_player_stats
+    )
 
-    if not match:
+    # Récupération des infos du match
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT f.date, t1.logo, t2.logo
+            FROM fixtures f
+            JOIN teams t1 ON f.home_team_id = t1.id
+            JOIN teams t2 ON f.away_team_id = t2.id
+            WHERE f.id = ?
+        """, (fixture_id,))
+        result = cursor.fetchone()
+
+    if not result:
         return render_template("match_preview.html", match=None)
 
-    # Formatage de la date
-    raw_date = match.get("date")
-    try:
-        date_obj = datetime.strptime(raw_date, "%Y-%m-%d")
-    except Exception:
-        date_obj = datetime.today()
+    match_date_str, home_logo, away_logo = result
+    match_date = None
 
-    match["formatted_date"] = date_obj.strftime("%Y-%m-%d")
-
-    return render_template("match_preview.html", match=match)
-
-
-    # ⬇️ FORMATAGE DE LA DATE ET DE L’HEURE
-    raw_date = match.get("date")
-    date_obj = None
-
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
-            date_obj = datetime.strptime(raw_date, fmt)
+            match_date = datetime.strptime(match_date_str, fmt)
             break
         except (ValueError, TypeError):
             continue
 
-    if date_obj:
-        match["formatted_date"] = date_obj.strftime("%d/%m/%Y")
-        match["formatted_time"] = date_obj.strftime("%H:%M")
+    now = datetime.now(timezone.utc)
+
+    # 🔁 Choix de la fonction selon que le match est joué ou non
+    if match_date and match_date > now:
+        print("⏳ Match à venir - cumul des stats")
+        match = get_match_with_cumulative_player_stats(fixture_id)
     else:
-        match["formatted_date"] = "Date inconnue"
-        match["formatted_time"] = ""
+        print("✅ Match terminé - stats du match")
+        match = get_match_with_player_stats(fixture_id)
 
-    # ⬇️ Récupération des logos
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT logo FROM teams WHERE id = ?", (match["home_team_id"],))
-        home_logo = cursor.fetchone()[0]
-        cursor.execute("SELECT logo FROM teams WHERE id = ?", (match["away_team_id"],))
-        away_logo = cursor.fetchone()[0]
+    if not match:
+        return render_template("match_preview.html", match=None)
 
-    # ⬇️ Envoi des données au template
-    return render_template("match_preview.html",
-        match=match,
-        home_logo=home_logo,
-        away_logo=away_logo
-    )
-
+    return render_template("match_preview.html", match=match, home_logo=home_logo, away_logo=away_logo)
 
 
 

@@ -87,6 +87,7 @@ def get_match_with_cumulative_player_stats(fixture_id):
         match = cursor.fetchone()
 
         if not match:
+            print("❌ Match non trouvé :", fixture_id)
             return None
 
         match_date = match[1]
@@ -97,7 +98,7 @@ def get_match_with_cumulative_player_stats(fixture_id):
 
         match_data = {
             "id": match[0],
-            "date": match[1][:10],
+            "date": match_date[:10],
             "home_team_id": home_team_id,
             "away_team_id": away_team_id,
             "league_id": league_id,
@@ -109,10 +110,9 @@ def get_match_with_cumulative_player_stats(fixture_id):
             "away_players": [],
         }
 
-        print("📦 Stats cumulées récupérées pour match à venir :", fixture_id)
-        print(f"🗓️  Date du match : {match_date}")
-        print(f"🏆  League ID : {league_id} | Saison : {season}")
-        print(f"🏠  Home team ID : {home_team_id} | 🛫 Away team ID : {away_team_id}")
+        print("📦 Stats cumulées pour match :", fixture_id)
+        print(f"🗓️  Date : {match_date} | Saison : {season}")
+        print(f"🏠 Home ID : {home_team_id} | 🛫 Away ID : {away_team_id}")
 
         # 2. Liste des matchs utilisés pour le cumul
         cursor.execute("""
@@ -127,7 +127,8 @@ def get_match_with_cumulative_player_stats(fixture_id):
             ORDER BY f.date
         """, (match_date, league_id, season, home_team_id, away_team_id))
         matches_used = cursor.fetchall()
-        print("📅 Matchs utilisés pour le cumul :")
+
+        print("📅 Matchs utilisés pour cumul :")
         for m in matches_used:
             print(f" - {m[0]} | {m[1][:10]} : {m[2]} vs {m[3]}")
 
@@ -140,7 +141,10 @@ def get_match_with_cumulative_player_stats(fixture_id):
                 SUM(COALESCE(ps.assists, 0)),
                 SUM(COALESCE(ps.minutes, 0)),
                 SUM(COALESCE(ps.shots_total, 0)),
-                SUM(COALESCE(ps.shots_on_target, 0))
+                SUM(COALESCE(ps.shots_on_target, 0)),
+                SUM(COALESCE(ps.yellow_cards, 0)),
+                SUM(COALESCE(ps.red_cards, 0)),
+                SUM(COALESCE(ps.penalty_scored, 0))
             FROM player_stats ps
             JOIN players p ON ps.player_id = p.id
             JOIN fixtures f ON ps.fixture_id = f.id
@@ -166,6 +170,9 @@ def get_match_with_cumulative_player_stats(fixture_id):
                 "minutes": row[7],
                 "shots_total": row[8],
                 "shots_on_target": row[9],
+                "yellow_cards": row[10],
+                "red_cards": row[11],
+                "penalty_scored": row[12],
                 "goals_per_game": round((row[5] or 0) / row[4], 2) if row[4] else 0,
                 "assists_per_game": round((row[6] or 0) / row[4], 2) if row[4] else 0,
                 "minutes_per_game": round((row[7] or 0) / row[4], 1) if row[4] else 0,
@@ -180,7 +187,12 @@ def get_match_with_cumulative_player_stats(fixture_id):
             else:
                 match_data["away_players"].append(player)
 
+        print(f"✅ Joueurs domicile : {len(match_data['home_players'])}")
+        print(f"✅ Joueurs extérieur : {len(match_data['away_players'])}")
         return match_data
+
+
+
 
 
 
@@ -505,6 +517,7 @@ def get_match_with_player_stats(fixture_id):
         """, (fixture_id,))
         match = cursor.fetchone()
         if not match:
+            print("❌ Match introuvable pour fixture_id :", fixture_id)
             return None
 
         match_data = {
@@ -522,6 +535,8 @@ def get_match_with_player_stats(fixture_id):
             "players": []
         }
 
+        print(f"📊 Traitement du match : {match_data['home_team']} vs {match_data['away_team']} (ID {fixture_id})")
+
         # 2. Récupère tous les événements du match
         cursor.execute("""
             SELECT player_id, assist_id, type, detail
@@ -529,6 +544,7 @@ def get_match_with_player_stats(fixture_id):
             WHERE fixture_id = ?
         """, (fixture_id,))
         events = cursor.fetchall()
+        print(f"📌 Événements récupérés : {len(events)}")
 
         # 3. Récupère tous les joueurs ayant des stats
         cursor.execute("""
@@ -538,7 +554,9 @@ def get_match_with_player_stats(fixture_id):
             WHERE ps.fixture_id = ?
         """, (fixture_id,))
         stats = cursor.fetchall()
+        print(f"👥 Joueurs avec stats récupérés : {len(stats)}")
 
+        # 4. Construction de la liste des joueurs
         for row in stats:
             player_id = row[0]
             player = {
@@ -550,29 +568,25 @@ def get_match_with_player_stats(fixture_id):
                 "team_id": row[4],
                 "goals": 0,
                 "assists": 0,
-                "penalties": 0,
+                "penalty_scored": 0,
                 "yellow_cards": 0,
                 "red_cards": 0
             }
 
-            # Comptage précis des buts et passes
-            for e in events:
-                e_player_id, e_assist_id, e_type, e_detail = e
-            
+            for e_player_id, e_assist_id, e_type, e_detail in events:
                 if e_type == "Goal":
-                    if e_player_id == player_id and e_assist_id != player_id:
+                    if e_player_id == player_id:
                         player["goals"] += 1
                         if e_detail == "Penalty":
-                            player["penalties"] += 1
+                            player["penalty_scored"] += 1
                     if e_assist_id == player_id:
                         player["assists"] += 1
-            
+
                 if e_type == "Card" and e_player_id == player_id:
                     if e_detail == "Yellow Card":
                         player["yellow_cards"] += 1
                     elif e_detail == "Red Card":
                         player["red_cards"] += 1
-
 
             match_data["players"].append(player)
 
@@ -581,7 +595,12 @@ def get_match_with_player_stats(fixture_id):
             else:
                 match_data["away_players"].append(player)
 
+        print(f"✅ Joueurs domicile : {len(match_data['home_players'])}")
+        print(f"✅ Joueurs extérieur : {len(match_data['away_players'])}")
+
         return match_data
+
+
     
 def repair_player_stats_from_events(fixture_id):
     with sqlite3.connect(DB_PATH) as conn:

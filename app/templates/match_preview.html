@@ -39,9 +39,10 @@
             <th data-sort="name">Joueur</th>
             <th data-sort="position">Pos</th>
             <th>Équipe</th>
+            <th data-sort="appearances">App.</th>
             <th data-sort="goals">Buts</th>
             <th data-sort="assists">Passes</th>
-            <th data-sort="penalty">Penalty</th>
+            <th data-sort="penalty_scored">Penalty</th>
             <th data-sort="yellow_cards">🟨</th>
             <th data-sort="red_cards">🟥</th>
           </tr>
@@ -52,9 +53,10 @@
             <td>{{ player.name }}</td>
             <td>{{ player.position_abbr }}</td>
             <td><img class="small-team-logo" src="{{ player.team_logo }}" alt="logo"/></td>
+            <td>{{ player.appearances or 0 }}</td>
             <td>{{ player.goals }}</td>
             <td>{{ player.assists }}</td>
-            <td>{{ player.penalty or 0 }}</td>
+            <td>{{ player.penalty_scored }}</td>
             <td>{{ player.yellow_cards or 0 }}</td>
             <td>{{ player.red_cards or 0 }}</td>
           </tr>
