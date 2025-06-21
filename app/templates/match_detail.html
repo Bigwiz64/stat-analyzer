@@ -8,18 +8,6 @@
 
 {% block content %}
 {% if match %}
-<form method="get" class="filter-form">
-    <label>📊 Stat :</label>
-    <select name="stat">
-        <option value="goals" {% if stat == 'goals' %}selected{% endif %}>Buts</option>
-        <option value="assists" {% if stat == 'assists' %}selected{% endif %}>Passes</option>
-        <option value="minutes" {% if stat == 'minutes' %}selected{% endif %}>Minutes</option>
-    </select>
-
-    <label>🎯 Seuil :</label>
-    <input type="number" name="cut" value="{{ cut or '' }}" style="width: 80px;">
-    <button type="submit">Appliquer</button>
-</form>
 
 <div class="match-result-card">
     <div class="team">

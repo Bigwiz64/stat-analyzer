@@ -2,6 +2,7 @@ import sys
 import os
 import sqlite3
 import time
+import requests
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -33,7 +34,7 @@ def get_season_from_date(date_str, league_id):
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    244
+    164
 ]
 
 SEASON_BY_LEAGUE = {
@@ -41,13 +42,13 @@ SEASON_BY_LEAGUE = {
     144: 2024, 95: 2024, 244: 2025, 119: 2024, 186: 2024, 188: 2025, 81: 2024,
     307: 2024, 128: 2025, 71: 2025, 265: 2025, 169: 2025, 318: 2024, 239: 2025,
     292: 2025, 210: 2024, 242: 2025, 329: 2025, 253: 2025, 197: 2024, 357: 2025,
-    165: 2025, 98: 2025, 365: 2025, 262: 2024, 250: 2025, 106: 2024, 283: 2024,
-    207: 2024, 203: 2024, 333: 2024
+    164: 2025, 98: 2025, 365: 2025, 262: 2024, 250: 2025, 106: 2024, 283: 2024,
+    207: 2024, 203: 2024, 333: 2024, 239: 2025
 }
 
 DEFAULT_SEASON = 2024
-FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2024-08-01"
-TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-07-30"
+FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-02-01"
+TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-06-17"
 MODE = sys.argv[3] if len(sys.argv) > 3 else "complet"
 
 def insert_player_stats(fixture_id, season_str):
@@ -188,6 +189,95 @@ def fetch_fixtures(league_id):
     print(f"✅ {total_added} matchs traités pour la ligue {league_id}")
     time.sleep(1.5)
 
+def update_players_table(team_ids, api_key, season):
+    print(f"🔍 {len(team_ids)} équipes à mettre à jour pour la saison {season}...")
+    headers = {"X-RapidAPI-Key": api_key}
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+
+        for team_id in team_ids:
+            params = {
+                "team": team_id,
+                "season": int(str(season)[:4])  # Extrait 2024 de "2024-2025"
+            }
+
+            try:
+                response = requests.get("https://v3.football.api-sports.io/players", headers=headers, params=params)
+                data = response.json()
+
+                if data.get("errors"):
+                    print(f"❌ Erreur API : {data['errors']}")
+                    continue
+
+                for player in data["response"]:
+                    p = player["player"]
+                    player_id = p.get("id")
+                    name = p.get("name")
+                    firstname = p.get("firstname")
+                    lastname = p.get("lastname")
+                    age = p.get("age")
+                    position = player.get("statistics", [{}])[0].get("games", {}).get("position")
+                    nationality = p.get("nationality")
+                    country_flag = p.get("nationality")  # Tu peux améliorer ça si besoin
+
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO players (id, name, firstname, lastname, position, age, country, country_flag)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (player_id, name, firstname, lastname, position, age, nationality, country_flag))
+
+                print(f"✅ Équipe {team_id} mise à jour")
+            except Exception as e:
+                print(f"❌ Erreur lors de la mise à jour de l'équipe {team_id} : {e}")
+
+import requests
+
+def update_unknown_players_info(api_key, season):
+    print("🔍 Recherche des joueurs inconnus à mettre à jour...")
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT p.id, ps.team_id
+            FROM players p
+            JOIN player_stats ps ON p.id = ps.player_id
+            WHERE p.name = 'Inconnu'
+        """)
+        unknowns = cursor.fetchall()
+    
+    print(f"🧩 {len(unknowns)} joueurs inconnus à mettre à jour...")
+
+    headers = {"X-RapidAPI-Key": api_key}
+    for player_id, team_id in unknowns:
+        try:
+            params = {
+                "team": team_id,
+                "season": int(str(season)[:4])  # Extraire "2024" de "2024-2025"
+            }
+            res = requests.get("https://v3.football.api-sports.io/players", headers=headers, params=params)
+            res_json = res.json()
+            players_data = res_json.get("response", [])
+            for player in players_data:
+                p = player["player"]
+                if p["id"] == player_id:
+                    firstname = p.get("firstname")
+                    lastname = p.get("lastname")
+                    name = f"{firstname} {lastname}".strip()
+                    age = p.get("age")
+                    nationality = p.get("nationality")
+                    position = player.get("statistics", [{}])[0].get("games", {}).get("position", "?")
+                    flag = p.get("photo")
+
+                    with sqlite3.connect(DB_PATH) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE players
+                            SET name = ?, position = ?, age = ?, country = ?, country_flag = ?
+                            WHERE id = ?
+                        """, (name, position, age, nationality, flag, player_id))
+                    print(f"✅ Joueur {name} mis à jour")
+        except Exception as e:
+            print(f"❌ Erreur pour le joueur {player_id} : {e}")
+
 if __name__ == "__main__":
     print(f"🛠️ Mode sélectionné : {MODE}")
     for league_id in LEAGUES:
@@ -200,5 +290,11 @@ if __name__ == "__main__":
     for season in seasons:
         print(" - Saison :", season[0])
 
-    # 🧼 Mise à jour auto des joueurs inconnus après import
+    # ✅ Mise à jour des joueurs inconnus avec saison dynamique
+    print("\n🔍 Recherche des joueurs inconnus à mettre à jour...")
+    API_KEY = os.getenv("API_SPORT_KEY")
+    target_season = sys.argv[4] if len(sys.argv) > 4 else "2025-2026"
+    print(f"📅 Saison utilisée pour mise à jour des joueurs : {target_season}")
     update_unknown_players()
+
+

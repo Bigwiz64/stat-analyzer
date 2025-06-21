@@ -33,6 +33,11 @@
 <div class="match-panel">
   <div class="player-list-block expanded" id="playerListBlock">
     <div class="scrollable-player-list">
+      <div class="team-toggle-buttons">
+        <button class="filter-btn active" data-team="all">Tous</button>
+        <button class="filter-btn" data-team="home">Domicile</button>
+        <button class="filter-btn" data-team="away">Extérieur</button>
+      </div>
       <table class="player-table">
         <thead>
           <tr>
@@ -49,7 +54,10 @@
         </thead>
         <tbody>
           {% for player in match.home_players + match.away_players %}
-          <tr class="player-item" data-id="{{ player.id }}" data-name="{{ player.name }}">
+          <tr class="player-item"
+              data-id="{{ player.id }}"
+              data-name="{{ player.name }}"
+              data-team="{{ 'home' if player in match.home_players else 'away' }}">
             <td>{{ player.name }}</td>
             <td>{{ player.position_abbr }}</td>
             <td><img class="small-team-logo" src="{{ player.team_logo }}" alt="logo"/></td>
@@ -550,7 +558,29 @@ cards.forEach(card => {
       });
       // ➕ Tri automatique au chargement sur "Buts"
 const defaultHeader = document.querySelector('th[data-sort="goals"]');
-if (defaultHeader) defaultHeader.click();
+if (defaultHeader) {
+  defaultHeader.click(); // Tri croissant
+  defaultHeader.click(); // Tri décroissant
+}
+// === Filtrage Domicile / Extérieur ===
+const teamFilterButtons = document.querySelectorAll(".filter-btn");
+
+teamFilterButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    const team = btn.dataset.team;
+
+    // Bouton actif
+    teamFilterButtons.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    // Affiche ou masque les lignes du tableau
+    document.querySelectorAll(".player-item").forEach(row => {
+      const rowTeam = row.dataset.team;
+      row.style.display = (team === "all" || rowTeam === team) ? "" : "none";
+    });
+  });
+});
+
     }); // ✅ une seule fermeture ici
   }); // ✅ FIN de document.addEventListener("DOMContentLoaded", ...)
 </script>
