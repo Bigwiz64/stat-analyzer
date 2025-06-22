@@ -13,6 +13,7 @@
   <div class="team team-vertical">
     <img alt="{{ match.home_team }}" class="team-logo-large" src="{{ home_logo }}"/>
     <div class="team-name big">{{ match.home_team }}</div>
+    <div class="goal-series" id="home-goal-series"></div>
   </div>
   <div class="score-block">
     <div class="match-date">{{ match.date[:10] }} {{ match.time or '' }}</div>
@@ -27,6 +28,8 @@
   <div class="team team-vertical">
     <img alt="{{ match.away_team }}" class="team-logo-large" src="{{ away_logo }}"/>
     <div class="team-name big">{{ match.away_team }}</div>
+    <!-- Dans la div .match-result-card après chaque équipe -->
+    <div class="goal-series" id="away-goal-series"></div>
   </div>
 </div>
 
@@ -108,6 +111,54 @@
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     const matchId = {{ match.id | tojson }};
+    function loadTeamGoalSeries(teamId, targetId, fixtureId) {
+    fetch(`/team/${teamId}/goal_series?fixture_id=${fixtureId}`)
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById(targetId);
+          if (!container) return;
+          container.innerHTML = '';
+        
+          const streakDiv = document.createElement("div");
+          streakDiv.className = "goal-streak";
+          data.series.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "goal-box";
+            card.textContent = item.goals;
+            streakDiv.appendChild(card);
+          });
+        
+          const rankDiv = document.createElement("div");
+          rankDiv.className = "attack-rank";
+          if (data.attack_rank) {
+            rankDiv.textContent = `${data.attack_rank}ᵉ`;
+            if (data.attack_rank <= 3) {
+            rankDiv.classList.add("rank-top");
+          } else if (data.attack_rank >= data.team_count - 2) {
+            rankDiv.classList.add("rank-bottom");
+          } else {
+            rankDiv.classList.add("rank-mid");
+          }
+
+          }
+
+        
+          const wrapper = document.createElement("div");
+          wrapper.className = "goal-streak-wrapper";
+          wrapper.appendChild(rankDiv);
+          wrapper.appendChild(streakDiv);
+          container.appendChild(wrapper);
+
+        });
+    }
+
+
+    const homeTeamId = {{ match.home_team_id }};
+    const awayTeamId = {{ match.away_team_id }};
+    loadTeamGoalSeries(homeTeamId, "home-goal-series", matchId);
+    loadTeamGoalSeries(awayTeamId, "away-goal-series", matchId);
+
+
     const toggleBtn = document.getElementById("togglePanel");
   
     toggleBtn.addEventListener("click", () => {
@@ -161,6 +212,7 @@
         { label: "90", cut: 90, filter: "" }
       ]
     };
+
   
     document.getElementById("stat-buttons").innerHTML = Object.keys(statOptions).map(stat =>
       `<button class="stat-btn" data-stat="${stat}" type="button">${stat.charAt(0).toUpperCase() + stat.slice(1)}</button>`

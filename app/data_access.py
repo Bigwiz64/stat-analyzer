@@ -750,3 +750,71 @@ def fallback_player_stats_from_events(fixture_id):
     conn.commit()
     conn.close()
     print(f"✅ Fallback terminé pour le match {fixture_id}")
+
+# data_access.py
+
+import sqlite3
+from data_pipeline.api_utils.path_utils import get_db_path
+
+
+def get_team_goal_series_with_rank(team_id, league_id, season):
+    conn = sqlite3.connect(get_db_path())
+    cursor = conn.cursor()
+
+    # Récupère les derniers matchs où l'équipe a joué et le score est connu
+    cursor.execute("""
+        SELECT 
+            f.date,
+            CASE 
+                WHEN f.home_team_id = ? THEN f.home_goals
+                ELSE f.away_goals
+            END as goals
+        FROM fixtures f
+        WHERE (f.home_team_id = ? OR f.away_team_id = ?)
+        AND f.home_goals IS NOT NULL AND f.away_goals IS NOT NULL
+        ORDER BY f.date DESC
+        LIMIT 20
+    """, (team_id, team_id, team_id))
+    
+    rows = cursor.fetchall()
+
+    # Filtrer la série continue de buts
+    streak = []
+    for row in rows:
+        goals = row[1]
+        if goals and goals > 0:
+            streak.append({"date": row[0], "goals": goals})
+        else:
+            break
+    streak = list(reversed(streak))
+
+    # Calcul du classement attaque
+    cursor.execute("""
+        SELECT team_id, SUM(goals) as total_goals
+        FROM (
+            SELECT home_team_id as team_id, SUM(home_goals) as goals
+            FROM fixtures
+            WHERE league_id = ? AND season = ? AND home_goals IS NOT NULL
+            GROUP BY home_team_id
+            UNION ALL
+            SELECT away_team_id as team_id, SUM(away_goals) as goals
+            FROM fixtures
+            WHERE league_id = ? AND season = ? AND away_goals IS NOT NULL
+            GROUP BY away_team_id
+        )
+        GROUP BY team_id
+        ORDER BY total_goals DESC
+    """, (league_id, season, league_id, season))
+
+    rankings = cursor.fetchall()
+    team_rank = next((i + 1 for i, (tid, _) in enumerate(rankings) if tid == team_id), None)
+    team_count = len(rankings)
+
+    conn.close()
+
+    return {
+        "series": streak,
+        "attack_rank": team_rank,
+        "team_count": team_count
+    }
+

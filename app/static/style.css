@@ -1671,3 +1671,56 @@ body.chart-visible .player-list-block {
   opacity: 1 !important;
   z-index: 9999;
 }
+
+.goal-series {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.goal-streak-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 5px;
+}
+
+.attack-rank {
+  width: 28px;
+  text-align: center;
+  font-weight: bold;
+  margin-right: 8px;
+  border-radius: 6px;
+  padding: 2px;
+  font-size: 13px;
+}
+
+.rank-top {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.rank-mid {
+  background-color: #f1895c;
+  color: white;
+}
+
+.rank-bottom {
+  background-color: #F44336;
+  color: white;
+}
+
+.goal-streak {
+  display: flex;
+  gap: 4px;
+}
+
+.goal-box {
+  background-color: #2E3244;
+  color: white;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+}

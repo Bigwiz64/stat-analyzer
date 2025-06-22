@@ -4,7 +4,8 @@ from .data_access import (
     get_player_match_stats,
     get_player_name,
     get_position_abbr,
-    get_match_with_cumulative_player_stats
+    get_match_with_cumulative_player_stats,
+    get_team_goal_series_with_rank
 )
 import sqlite3
 from datetime import datetime, timedelta
@@ -721,3 +722,36 @@ def compare_players():
     except Exception as e:
         print("❌ ERREUR /compare_players:", e)
         return jsonify({"error": str(e)}), 500
+    
+    # routes.py
+
+@main.route('/team/<int:team_id>/goal_series')
+def get_team_goal_series_route(team_id):
+    try:
+        fixture_id = request.args.get("fixture_id", type=int)
+        if not fixture_id:
+            return jsonify({"error": "fixture_id requis"}), 400
+
+        # Connexion à la base
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+
+        # Récupération de la ligue et saison du match
+        cursor.execute("SELECT league_id, season FROM fixtures WHERE id = ?", (fixture_id,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return jsonify({"error": "Match non trouvé"}), 404
+
+        league_id, season = row
+
+        # Appel à la fonction principale
+        data = get_team_goal_series_with_rank(team_id, league_id, season)
+        return jsonify(data)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()  # Montre l'erreur dans la console
+        return jsonify({"error": str(e)}), 500
+
