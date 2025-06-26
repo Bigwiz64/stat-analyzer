@@ -5,7 +5,9 @@ from .data_access import (
     get_player_name,
     get_position_abbr,
     get_match_with_cumulative_player_stats,
-    get_team_goal_series_with_rank
+    get_team_goal_series_with_rank,
+    get_team_season_stats,
+    get_current_season_int
 )
 import sqlite3
 from datetime import datetime, timedelta
@@ -755,3 +757,8 @@ def get_team_goal_series_route(team_id):
         traceback.print_exc()  # Montre l'erreur dans la console
         return jsonify({"error": str(e)}), 500
 
+@main.route('/team/<int:team_id>/season_stats')
+def team_season_stats(team_id):
+    season = get_current_season_int()  # Exemple : 2024/2025
+    stats = get_team_season_stats(team_id, season)
+    return jsonify(stats)

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block body_class %}match-preview-page{% endblock %}
 
-{% block title %}Détail du match{% endblock %}
+{% block title %}{{ match.home_team }} vs {{ match.away_team }} - PeakStat{% endblock %}
 
 {% block nav %}
   <a class="nav-button" href="{{ url_for('main.index') }}">← Retour</a>
@@ -104,6 +104,53 @@
   </div>
 </div>
 
+<div id="team-stats-section">
+  <h3>📊 Statistiques saison par équipe</h3>
+  <div class="team-stats-wrapper">
+
+    <!-- Bloc Home Team -->
+    <div class="team-stats-card">
+      <h4>{{ match.home_team }}</h4>
+      <ul>
+        <li><strong>Matchs joués :</strong> <span id="home_total_matches">-</span></li>
+        <li><strong>Buts marqués :</strong> <span id="home_goals">-</span></li>
+        <li><strong>Moyenne buts :</strong> <span id="home_avg_goals">-</span></li>
+        <li><strong>Matchs sans but :</strong> <span id="home_no_goal_matches">-</span></li>
+        <li><strong>% avec au moins 1 but :</strong> <span id="home_goal_ratio">-</span></li>
+        <li><strong>% Over 1.5 buts :</strong> <span id="home_over_1_5_pct">-</span></li>
+        <li><strong>% Over 2.5 buts :</strong> <span id="home_over_2_5_pct">-</span></li>
+        <li><strong>Buts 1ère MT :</strong> <span id="home_first_half_goals">-</span> (<span id="home_matches_with_goal_first_half">-</span> matchs)</li>
+        <li><strong>Buts 2nde MT :</strong> <span id="home_second_half_goals">-</span> (<span id="home_matches_with_goal_second_half">-</span> matchs)</li>
+      </ul>
+    </div>
+
+    <!-- Bloc Away Team -->
+    <div class="team-stats-card">
+      <h4>{{ match.away_team }}</h4>
+      <ul>
+        <li><strong>Matchs joués :</strong> <span id="away_total_matches">-</span></li>
+        <li><strong>Buts marqués :</strong> <span id="away_goals">-</span></li>
+        <li><strong>Moyenne buts :</strong> <span id="away_avg_goals">-</span></li>
+        <li><strong>Matchs sans but :</strong> <span id="away_no_goal_matches">-</span></li>
+        <li><strong>% avec au moins 1 but :</strong> <span id="away_goal_ratio">-</span></li>
+        <li><strong>% Over 1.5 buts :</strong> <span id="away_over_1_5_pct">-</span></li>
+        <li><strong>% Over 2.5 buts :</strong> <span id="away_over_2_5_pct">-</span></li>
+        <li><strong>Buts 1ère MT :</strong> <span id="away_first_half_goals">-</span> (<span id="away_matches_with_goal_first_half">-</span> matchs)</li>
+        <li><strong>Buts 2nde MT :</strong> <span id="away_second_half_goals">-</span> (<span id="away_matches_with_goal_second_half">-</span> matchs)</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+<script>
+  window.homeTeamId = {{ match.home_team_id }};
+  window.awayTeamId = {{ match.away_team_id }};
+</script>
+
+<script src="{{ url_for('static', filename='js/team_season_stats.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
@@ -636,6 +683,7 @@ teamFilterButtons.forEach(btn => {
     }); // ✅ une seule fermeture ici
   }); // ✅ FIN de document.addEventListener("DOMContentLoaded", ...)
 </script>
+
   
 {% else %}
 <p>⚠️ Match introuvable.</p>

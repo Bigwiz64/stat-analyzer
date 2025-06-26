@@ -597,6 +597,7 @@ h1, h2, h3 {
 .player-table {
   width: 100%;
     border-collapse: collapse;;
+    margin-bottom: 0;
 }
 
 .player-table th, .player-table td {
@@ -1491,10 +1492,11 @@ padding: 0;
 
 /* Container global pour que .match-panel puisse se dimensionner */
 .container {
-height: 100%;
-display: flex;
-flex-direction: column;
+  display: block;
+  height: auto;
+  min-height: 100vh;
 }
+
 
 /* La section match-panel occupe tout l’espace disponible */
 
@@ -1636,10 +1638,15 @@ body.chart-visible .player-list-block {
 
 /* Table scrollable */
 .scrollable-player-list {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  max-height: 530px;      /* Ajuste ici la hauteur visible (exemple : 450px = environ 10 lignes) */
+  overflow-y: auto;        /* Scroll vertical uniquement à l'intérieur de la liste des joueurs */
+  border: 1px solid #ddd;  /* Optionnel : petite bordure de séparation */
+  border-radius: 6px;      /* Coins arrondis pour un look plus propre */
+  background-color: #fff;  /* Fond blanc pour garder lisibilité */
+  margin-bottom: 20px;     /* Important : laisser un espace pour ne pas coller avec la section en-dessous */
 }
+
+
 
 /* Colonne droite (stat-panel) */
 .stat-panel.collapsed {
@@ -1723,4 +1730,62 @@ body.chart-visible .player-list-block {
   padding: 3px 6px;
   border-radius: 5px;
   font-size: 13px;
+}
+
+#team-stats-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #2E3244; /* Couleur fond foncé PeakStat */
+  border-radius: 10px;
+  color: #fff;
+}
+
+.team-stats-wrapper {
+  display: flex;
+  justify-content: space-around;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.team-stats-card {
+  flex: 1 1 250px;
+  background-color: #516079; /* Couleur bloc */
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.team-stats-card h4 {
+  margin-bottom: 10px;
+  color: #f1895c; /* Orange PeakStat */
+}
+
+.team-stats-card ul {
+  list-style: none;
+  padding: 0;
+}
+
+.team-stats-card li {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.team-stats-card li strong {
+  color: #C5C6C6; /* Gris clair */
+}
+
+#team-stats-section {
+  margin-top: 15px;  /* Réduit l’espace au-dessus */
+  padding: 15px 20px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.match-panel {
+  display: flex;
+  align-items: flex-start;
+  overflow: visible;
+  height: auto;
 }

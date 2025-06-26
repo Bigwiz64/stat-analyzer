@@ -818,3 +818,81 @@ def get_team_goal_series_with_rank(team_id, league_id, season):
         "team_count": team_count
     }
 
+def get_team_season_stats(team_id, season):
+    conn = sqlite3.connect(get_db_path())
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, home_team_id, away_team_id, home_goals, away_goals, home_goals_ht, away_goals_ht
+        FROM fixtures
+        WHERE (home_team_id = ? OR away_team_id = ?) AND season = ?
+        AND home_goals IS NOT NULL AND away_goals IS NOT NULL
+    """, (team_id, team_id, season))
+
+    matches = cursor.fetchall()
+    total_matches = len(matches)
+
+    goals = 0
+    no_goal_matches = 0
+    over_1_5 = 0
+    over_2_5 = 0
+    first_half_goals = 0
+    second_half_goals = 0
+    matches_with_goal_first_half = 0
+    matches_with_goal_second_half = 0
+    matches_with_goal = 0
+
+    for match in matches:
+        fixture_id, home_id, away_id, home_goals, away_goals, home_goals_ht, away_goals_ht = match
+
+        if team_id == home_id:
+            team_goals = home_goals
+            team_goals_ht = home_goals_ht
+            team_goals_2nd = home_goals - home_goals_ht
+        else:
+            team_goals = away_goals
+            team_goals_ht = away_goals_ht
+            team_goals_2nd = away_goals - away_goals_ht
+
+        goals += team_goals
+
+        if team_goals == 0:
+            no_goal_matches += 1
+        else:
+            matches_with_goal += 1
+
+        if team_goals >= 2:
+            over_1_5 += 1
+        if team_goals >= 3:
+            over_2_5 += 1
+
+        first_half_goals += team_goals_ht
+        second_half_goals += team_goals_2nd
+
+        if team_goals_ht > 0:
+            matches_with_goal_first_half += 1
+        if team_goals_2nd > 0:
+            matches_with_goal_second_half += 1
+
+    conn.close()
+
+    return {
+        "total_matches": total_matches,
+        "goals": goals,
+        "avg_goals": round(goals / total_matches, 2) if total_matches > 0 else 0,
+        "no_goal_matches": no_goal_matches,
+        "goal_ratio": round(matches_with_goal / total_matches * 100, 1) if total_matches > 0 else 0,
+        "over_1_5_pct": round(over_1_5 / total_matches * 100, 1) if total_matches > 0 else 0,
+        "over_2_5_pct": round(over_2_5 / total_matches * 100, 1) if total_matches > 0 else 0,
+        "first_half_goals": first_half_goals,
+        "second_half_goals": second_half_goals,
+        "matches_with_goal_first_half": matches_with_goal_first_half,
+        "matches_with_goal_second_half": matches_with_goal_second_half,
+    }
+
+
+
+def get_current_season_int():
+    from datetime import datetime
+    today = datetime.today()
+    return today.year if today.month >= 7 else today.year - 1
