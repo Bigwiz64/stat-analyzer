@@ -550,6 +550,8 @@ def player_stat_history(player_id):
         def count_hits(data):
             if filter_type == "first_half":
                 return sum(1 for d in data if d.get("status") == "mt")
+            elif filter_type == "both_halves":
+                return sum(1 for d in data if d.get("value", 0) >= 1 and d.get("status") != "none")
             else:
                 return sum(1 for d in data if float(d["value"]) >= float(cut))
 
@@ -561,22 +563,24 @@ def player_stat_history(player_id):
             percent = round((hits / total) * 100)
             return f"{hits}/{total} ({percent}%)"
 
-        # 🔍 Récupération du match pour connaître la ligue
+        def total_goals(data):
+            return sum(float(d.get("value", 0)) for d in data if d.get("value") and d.get("value") > 0.1)
+
+        # 🔍 Ligue du match courant
         match = get_match_with_player_stats(fixture_id)
         if not match:
             return jsonify({"error": "Fixture introuvable"}), 404
         league_id = match["league_id"]
 
-        # 📊 Stats dynamiques
+        # 📊 Stats principales
         history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type, league_id=league_id)
         for item in history_dynamic:
             if item.get("value") == 0 and item.get("minutes", 0) > 0:
-                item["value"] = 0.1
+                item["value"] = 0.1  # Pour forcer la barre rouge
 
-        # 🧩 Ajout des IDs d'équipes
+        # 🧩 Ajout Home/Away/PlayerTeam
         fixture_ids = [m["fixture_id"] for m in history_dynamic]
         team_info_map = {}
-
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
             if fixture_ids:
@@ -602,7 +606,7 @@ def player_stat_history(player_id):
             match["away_team_id"] = info.get("away_team_id")
             match["player_team_id"] = info.get("player_team_id")
 
-        # ✅ Ajout du score au format texte (OM 2 - 1 PSG)
+        # ✅ Ajout score au format texte
         score_map = {}
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
@@ -626,12 +630,12 @@ def player_stat_history(player_id):
         for match in history_dynamic:
             match["score"] = score_map.get(match["fixture_id"], "")
 
-        # 📊 Stats pour performance cards
+        # 📊 Performance cards
         history_5 = get_player_match_stats(player_id, stat, 5, filter_type, league_id=league_id)
         history_10 = get_player_match_stats(player_id, stat, 10, filter_type, league_id=league_id)
         history_20 = get_player_match_stats(player_id, stat, 20, filter_type, league_id=league_id)
 
-        # 🔍 Tous les matchs joués
+        # 🧱 Tous les matchs joués
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -667,18 +671,20 @@ def player_stat_history(player_id):
         return jsonify({
             "history": history_dynamic,
             "performance": {
-                "last_5": format_ratio(history_5),
-                "last_10": format_ratio(history_10),
-                "last_20": format_ratio(history_20),
-                "h2h": format_ratio(h2h_stats),
-                "home": format_ratio(home_stats),
-                "season": format_ratio(season_played_stats)
+                "last_5": f"{format_ratio(history_5)} | {total_goals(history_5)} But",
+                "last_10": f"{format_ratio(history_10)} | {total_goals(history_10)} But",
+                "last_20": f"{format_ratio(history_20)} | {total_goals(history_20)} But",
+                "h2h": f"{format_ratio(h2h_stats)} | {total_goals(h2h_stats)} But",
+                "home": f"{format_ratio(home_stats)} | {total_goals(home_stats)} But",
+                "season": f"{format_ratio(season_played_stats)} | {total_goals(season_played_stats)} But",
             }
         })
 
     except Exception as e:
         print("❌ ERREUR :", e)
         return jsonify({"error": str(e)}), 500
+
+
 
 
 

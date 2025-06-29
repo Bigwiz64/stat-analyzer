@@ -205,7 +205,9 @@ def get_team_id_by_name(conn, team_name):
     return result[0] if result else None
 
 
-def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, league_id=None):
+def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, league_id=None, cut=1):
+    print(f"\n🔍 [DEBUG] Appel de get_player_match_stats | player_id: {player_id} | stat: {stat} | filter_type: {filter_type} | league_id: {league_id} | cut: {cut}")
+
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
@@ -213,6 +215,7 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
             "first_half", "second_half", "both_halves",
             "0-15", "15-30", "30-45", "45-60", "60-75", "75-90"
         ):
+            print(f"➡️ [DEBUG] Bloc FILTRE SPÉCIAL : {filter_type}")
             base_query = """
                 SELECT DISTINCT f.id, DATE(f.date), f.home_goals, f.away_goals
                 FROM fixtures f
@@ -220,11 +223,9 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
                 WHERE ps.player_id = ?
             """
             params = [player_id]
-
             if league_id:
                 base_query += " AND f.league_id = ?"
                 params.append(league_id)
-
             base_query += " ORDER BY f.date DESC LIMIT ?"
             params.append(limit)
 
@@ -239,136 +240,113 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
                     WHERE e.fixture_id = ? AND e.player_id = ? AND e.type = 'Goal'
                 """, (fixture_id, player_id))
                 goals = cursor.fetchall()
+                print(f"📊 [DEBUG] Fixture {fixture_id} | Total Goals: {len(goals)} | Filter: {filter_type}")
+
+                first_half_goals = [
+                    e for e in goals if e[0] is not None and (e[0] < 45 or (e[0] == 45 and (e[1] or 0) <= 7))
+                ]
 
                 cursor.execute("SELECT minutes FROM player_stats WHERE player_id = ? AND fixture_id = ?", (player_id, fixture_id))
                 minutes_row = cursor.fetchone()
                 minutes_played = int(minutes_row[0]) if minutes_row and minutes_row[0] is not None else 0
 
-                filtered = []
-
                 if filter_type == "first_half":
-                    filtered = [e for e in goals if e[0] is not None and (e[0] < 45 or (e[0] == 45 and (e[1] or 0) <= 7))]
-                    if filtered:
-                        minute = int(filtered[0][0] or 0) + int(filtered[0][1] or 0)
+                    has_goal_but_not_first_half = len(goals) > 0 and len(first_half_goals) == 0
+                    print(f"👉 [DEBUG] FIRST_HALF | Fixture: {fixture_id} | has_goal_but_not_first_half: {has_goal_but_not_first_half}")
+                    if len(first_half_goals) >= cut:
+                        minute = int(first_half_goals[0][0] or 0) + int(first_half_goals[0][1] or 0)
                         results.append({
                             "fixture_id": fixture_id,
                             "date": date,
-                            "value": len(filtered),
+                            "value": len(first_half_goals),
                             "minute": minute,
                             "minutes": minutes_played,
                             "score": f"{home_goals}-{away_goals}",
-                            "status": "mt"
-                        })
-                    elif goals:
-                        minute = int(goals[0][0] or 0) + int(goals[0][1] or 0)
-                        results.append({
-                            "fixture_id": fixture_id,
-                            "date": date,
-                            "value": len(goals),
-                            "minute": minute,
-                            "minutes": minutes_played,
-                            "score": f"{home_goals}-{away_goals}",
-                            "status": "2mt"
+                            "status": "mt",
+                            "has_goal_but_not_first_half": False
                         })
                     else:
+                        value_to_use = 1 if has_goal_but_not_first_half else 0.1
                         results.append({
                             "fixture_id": fixture_id,
                             "date": date,
-                            "value": 0.1,
+                            "value": value_to_use,
                             "minute": None,
                             "minutes": minutes_played,
                             "score": f"{home_goals}-{away_goals}",
-                            "status": "none"
+                            "status": "none",
+                            "has_goal_but_not_first_half": has_goal_but_not_first_half
                         })
                     continue
 
                 elif filter_type == "second_half":
                     filtered = [e for e in goals if e[0] is not None and (e[0] > 45 or (e[0] == 45 and (e[1] or 0) > 7))]
-
-                elif filter_type == "both_halves":
-                    has_first = any(e[0] is not None and (e[0] < 45 or (e[0] == 45 and (e[1] or 0) <= 7)) for e in goals)
-                    has_second = any(e[0] is not None and (e[0] > 45 or (e[0] == 45 and (e[1] or 0) > 7)) for e in goals)
-                    value = 1 if has_first and has_second else 0.1
-                    minute = int(goals[0][0] or 0) + int(goals[0][1] or 0) if goals else None
-                    status = "none" if value == 0.1 else None
-                    result = {
+                    value_to_use = len(filtered) if filtered else 0.1
+                    print(f"👉 [DEBUG] SECOND_HALF | Fixture: {fixture_id} | Total Goals 2MT: {len(filtered)}")
+                    results.append({
                         "fixture_id": fixture_id,
                         "date": date,
-                        "value": value,
-                        "minute": minute,
+                        "value": value_to_use,
+                        "minute": None,
                         "minutes": minutes_played,
-                        "score": f"{home_goals}-{away_goals}"
-                    }
-                    if status:
-                        result["status"] = status
-                    results.append(result)
+                        "score": f"{home_goals}-{away_goals}",
+                        "has_goal_but_not_first_half": False
+                    })
+                    continue
+
+                elif filter_type == "both_halves":
+                    has_first = len(first_half_goals) > 0
+                    has_second = any(e[0] is not None and (e[0] > 45 or (e[0] == 45 and (e[1] or 0) > 7)) for e in goals)
+                    has_goal_but_not_first_half = (len(goals) == 1)
+                    print(f"👉 [DEBUG] BOTH_HALVES | Fixture: {fixture_id} | has_first: {has_first} | has_second: {has_second} | Total Goals: {len(goals)}")
+                    if has_first and has_second:
+                        total_goals = len(goals)
+                        minute = int(goals[0][0] or 0) + int(goals[0][1] or 0)
+                        results.append({
+                            "fixture_id": fixture_id,
+                            "date": date,
+                            "value": total_goals,
+                            "minute": minute,
+                            "minutes": minutes_played,
+                            "score": f"{home_goals}-{away_goals}",
+                            "status": "2mt",
+                            "has_goal_but_not_first_half": False
+                        })
+                    else:
+                        value_to_use = 1 if has_goal_but_not_first_half else 0.1
+                        results.append({
+                            "fixture_id": fixture_id,
+                            "date": date,
+                            "value": value_to_use,
+                            "minute": None,
+                            "minutes": minutes_played,
+                            "score": f"{home_goals}-{away_goals}",
+                            "status": "none",
+                            "has_goal_but_not_first_half": has_goal_but_not_first_half
+                        })
                     continue
 
                 elif "-" in filter_type:
                     try:
                         min_range, max_range = map(int, filter_type.split("-"))
                         filtered = [e for e in goals if e[0] is not None and min_range <= e[0] < max_range]
-                    except Exception as e:
-                        print(f"⚠️ Erreur parsing intervalle {filter_type} :", e)
-
-                    if filtered:
-                        try:
-                            minute = int(filtered[0][0] or 0) + int(filtered[0][1] or 0)
-                        except Exception as e:
-                            print("⛔ Erreur de calcul de minute:", e)
-                            minute = 0
+                        value_to_use = len(filtered) if filtered else 0.1
+                        print(f"👉 [DEBUG] INTERVAL | Fixture: {fixture_id} | Filter: {filter_type} | Total Goals in Range: {len(filtered)}")
                         results.append({
                             "fixture_id": fixture_id,
                             "date": date,
-                            "value": len(filtered),
-                            "minute": minute,
-                            "minutes": minutes_played,
-                            "score": f"{home_goals}-{away_goals}"
-                        })
-                    else:
-                        results.append({
-                            "fixture_id": fixture_id,
-                            "date": date,
-                            "value": 0.1,
+                            "value": value_to_use,
                             "minute": None,
                             "minutes": minutes_played,
                             "score": f"{home_goals}-{away_goals}",
-                            "status": "none"
+                            "has_goal_but_not_first_half": False
                         })
+                    except Exception as e:
+                        print(f"⚠️ Erreur parsing intervalle {filter_type} :", e)
                     continue
 
-                if filtered:
-                    minute = int(filtered[0][0] or 0) + int(filtered[0][1] or 0)
-                    results.append({
-                        "fixture_id": fixture_id,
-                        "date": date,
-                        "value": len(filtered),
-                        "minute": minute,
-                        "minutes": minutes_played,
-                        "score": f"{home_goals}-{away_goals}"
-                    })
-                elif goals:
-                    minute = int(goals[0][0] or 0) + int(goals[0][1] or 0)
-                    results.append({
-                        "fixture_id": fixture_id,
-                        "date": date,
-                        "value": len(goals),
-                        "minute": minute,
-                        "minutes": minutes_played,
-                        "score": f"{home_goals}-{away_goals}"
-                    })
-                else:
-                    results.append({
-                        "fixture_id": fixture_id,
-                        "date": date,
-                        "value": 0.1,
-                        "minute": None,
-                        "minutes": minutes_played,
-                        "score": f"{home_goals}-{away_goals}",
-                        "status": "none"
-                    })
-
         else:
+            print(f"➡️ [DEBUG] Bloc ELSE (X1 / X2 / autres stats) | Filter Type: {filter_type}")
             base_query = f"""
                 SELECT DISTINCT f.id, DATE(f.date), f.home_goals, f.away_goals
                 FROM fixtures f
@@ -376,11 +354,9 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
                 WHERE ps.player_id = ?
             """
             params = [player_id]
-
             if league_id:
                 base_query += " AND f.league_id = ?"
                 params.append(league_id)
-
             base_query += " ORDER BY f.date DESC LIMIT ?"
             params.append(limit)
 
@@ -389,32 +365,65 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
             results = []
 
             for fixture_id, date, home_goals, away_goals in recent_matches:
-                cursor.execute(f"""
-                    SELECT {stat}, minutes
+                cursor.execute("""
+                    SELECT goals, minutes
                     FROM player_stats
                     WHERE player_id = ? AND fixture_id = ?
                     LIMIT 1
                 """, (player_id, fixture_id))
                 stat_row = cursor.fetchone()
-                value = stat_row[0] if stat_row and stat_row[0] is not None else 0.1
+                total_goals = stat_row[0] if stat_row and stat_row[0] is not None else 0
                 minutes_played = stat_row[1] if stat_row and stat_row[1] is not None else 0
+
+                print(f"➡️ [DEBUG] Fixture {fixture_id} | Total Goals: {total_goals} | Filter Type: {filter_type}")
+
+                if stat == "goals" and (filter_type is None or filter_type == ""):
+                    print(f"✅ [DEBUG] Cas X2 détecté | Fixture: {fixture_id} | Total Goals: {total_goals}")
+                    if total_goals >= 2:
+                        value_to_use = total_goals
+                        has_goal_but_not_first_half = False
+                    elif total_goals == 1:
+                        value_to_use = 1
+                        has_goal_but_not_first_half = True
+                    else:
+                        value_to_use = 0.1
+                        has_goal_but_not_first_half = False
+
+                elif stat == "goals" and filter_type == "goals":
+                    print(f"✅ [DEBUG] Cas X1 détecté | Fixture: {fixture_id} | Total Goals: {total_goals}")
+                    value_to_use = total_goals if total_goals > 0 else 0.1
+                    has_goal_but_not_first_half = False
+
+                else:
+                    print(f"✅ [DEBUG] Cas Autres stats détecté | Fixture: {fixture_id} | Total Goals: {total_goals}")
+                    value_to_use = total_goals if total_goals > 0 else 0.1
+                    has_goal_but_not_first_half = False
 
                 results.append({
                     "fixture_id": fixture_id,
                     "date": date,
-                    "value": value,
+                    "value": value_to_use,
                     "minute": None,
                     "minutes": minutes_played,
                     "score": f"{home_goals}-{away_goals}",
-                    "status": "none" if value == 0.1 else None
+                    "status": "none" if value_to_use == 0.1 else None,
+                    "has_goal_but_not_first_half": has_goal_but_not_first_half
                 })
 
+        print(f"✅ [DEBUG] Total résultats avant nettoyage: {len(results)}")
         unique_results = {}
         for res in results:
             fid = res['fixture_id']
             if fid not in unique_results:
                 unique_results[fid] = res
+
+        print(f"✅ [DEBUG] Total résultats après nettoyage: {len(unique_results)}")
         return list(unique_results.values())
+
+
+
+
+
 
 
 

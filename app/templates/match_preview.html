@@ -104,585 +104,141 @@
   </div>
 </div>
 
-<div id="team-stats-section">
-  <h3>📊 Statistiques saison par équipe</h3>
-  <div class="team-stats-wrapper">
 
-    <!-- Bloc Home Team -->
-    <div class="team-stats-card">
-      <h4>{{ match.home_team }}</h4>
-      <ul>
-        <li><strong>Matchs joués :</strong> <span id="home_total_matches">-</span></li>
-        <li><strong>Buts marqués :</strong> <span id="home_goals">-</span></li>
-        <li><strong>Moyenne buts :</strong> <span id="home_avg_goals">-</span></li>
-        <li><strong>Matchs sans but :</strong> <span id="home_no_goal_matches">-</span></li>
-        <li><strong>% avec au moins 1 but :</strong> <span id="home_goal_ratio">-</span></li>
-        <li><strong>% Over 1.5 buts :</strong> <span id="home_over_1_5_pct">-</span></li>
-        <li><strong>% Over 2.5 buts :</strong> <span id="home_over_2_5_pct">-</span></li>
-        <li><strong>Buts 1ère MT :</strong> <span id="home_first_half_goals">-</span> (<span id="home_matches_with_goal_first_half">-</span> matchs)</li>
-        <li><strong>Buts 2nde MT :</strong> <span id="home_second_half_goals">-</span> (<span id="home_matches_with_goal_second_half">-</span> matchs)</li>
-      </ul>
+<div class="section-title">
+  <h3>Marquer et encaisser</h3>
+</div>
+
+<div class="stat-card">
+
+  <div class="filter-top-row">
+
+    <!-- Colonne Domicile -->
+    <div class="filter-toggle-column">
+
+      <!-- Groupe Lieu - Domicile -->
+      <div class="filter-toggle-group filter-group-lieu-home">
+        <button class="filter-btn active">Tous</button>
+        <button class="filter-btn">Domicile</button>
+        <button class="filter-btn">Extérieure</button>
+      </div>
+
+      <!-- Groupe Type - Domicile -->
+      <div class="filter-toggle-group filter-group-type-home">
+        <button class="filter-btn active">Marqué</button>
+        <button class="filter-btn">Encaissé</button>
+      </div>
+
     </div>
 
-    <!-- Bloc Away Team -->
-    <div class="team-stats-card">
-      <h4>{{ match.away_team }}</h4>
-      <ul>
-        <li><strong>Matchs joués :</strong> <span id="away_total_matches">-</span></li>
-        <li><strong>Buts marqués :</strong> <span id="away_goals">-</span></li>
-        <li><strong>Moyenne buts :</strong> <span id="away_avg_goals">-</span></li>
-        <li><strong>Matchs sans but :</strong> <span id="away_no_goal_matches">-</span></li>
-        <li><strong>% avec au moins 1 but :</strong> <span id="away_goal_ratio">-</span></li>
-        <li><strong>% Over 1.5 buts :</strong> <span id="away_over_1_5_pct">-</span></li>
-        <li><strong>% Over 2.5 buts :</strong> <span id="away_over_2_5_pct">-</span></li>
-        <li><strong>Buts 1ère MT :</strong> <span id="away_first_half_goals">-</span> (<span id="away_matches_with_goal_first_half">-</span> matchs)</li>
-        <li><strong>Buts 2nde MT :</strong> <span id="away_second_half_goals">-</span> (<span id="away_matches_with_goal_second_half">-</span> matchs)</li>
-      </ul>
+    <!-- Colonne Extérieure -->
+    <div class="filter-toggle-column">
+
+      <!-- Groupe Lieu - Extérieure -->
+      <div class="filter-toggle-group filter-group-lieu-away">
+        <button class="filter-btn active">Tous</button>
+        <button class="filter-btn">Domicile</button>
+        <button class="filter-btn">Extérieure</button>
+      </div>
+
+      <!-- Groupe Type - Extérieure -->
+      <div class="filter-toggle-group filter-group-type-away">
+        <button class="filter-btn active">Marqué</button>
+        <button class="filter-btn">Encaissé</button>
+      </div>
+
     </div>
 
   </div>
-</div>
 
 </div>
+
+
+
+
+  <!-- Section Stats : Temps réglementaire -->
+  <div class="stat-section-header">Temps réglementaire</div>
+
+  <!-- Bloc : Temps réglementaire -->
+  <div class="stat-block-dual">
+    <div class="stat-title">Temps réglementaire</div>
+    <div class="stat-line-dual">
+      <div class="stat-bar-track reverse">
+        <div class="stat-bar-fill home" id="home_goal_ratio_bar"></div>
+      </div>
+      <div class="stat-bar-track">
+        <div class="stat-bar-fill away" id="away_goal_ratio_bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloc : Moyenne temps réglementaire -->
+  <div class="stat-block-dual">
+    <div class="stat-title">Moyenne temps réglementaire</div>
+    <div class="stat-line-dual">
+      <div class="stat-bar-track reverse">
+        <div class="stat-bar-fill home" id="home_avg_goals_bar"></div>
+      </div>
+      <div class="stat-bar-track">
+        <div class="stat-bar-fill away" id="away_avg_goals_bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section Stats : Mi-Temps -->
+  <div class="stat-section-header">Mi-Temps</div>
+
+  <!-- Bloc : Mi-Temps -->
+  <div class="stat-block-dual">
+    <div class="stat-title">Mi-Temps</div>
+    <div class="stat-line-dual">
+      <div class="stat-bar-track reverse">
+        <div class="stat-bar-fill home" id="home_half_time_bar"></div>
+      </div>
+      <div class="stat-bar-track">
+        <div class="stat-bar-fill away" id="away_half_time_bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloc : Moyenne Mi-Temps -->
+  <div class="stat-block-dual">
+    <div class="stat-title">Moyenne Mi-Temps</div>
+    <div class="stat-line-dual">
+      <div class="stat-bar-track reverse">
+        <div class="stat-bar-fill home" id="home_avg_half_time_bar"></div>
+      </div>
+      <div class="stat-bar-track">
+        <div class="stat-bar-fill away" id="away_avg_half_time_bar"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+
+
 
 <script>
-  window.homeTeamId = {{ match.home_team_id }};
-  window.awayTeamId = {{ match.away_team_id }};
+  window.MATCH_ID = {{ match.id | tojson }};
+  window.HOME_TEAM_ID = {{ match.home_team_id | tojson }};
+  window.AWAY_TEAM_ID = {{ match.away_team_id | tojson }};
 </script>
 
+<script src="{{ url_for('static', filename='js/initPlayerPanel.js') }}"></script>
+<script src="{{ url_for('static', filename='js/goal_series_loader.js') }}"></script>
+<script src="{{ url_for('static', filename='js/player_panel.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chart_config.js') }}"></script>
+<script src="{{ url_for('static', filename='js/player_list_sort.js') }}"></script>   <!-- ✅ Avant -->
+<script src="{{ url_for('static', filename='js/player_list_filter.js') }}"></script>
 <script src="{{ url_for('static', filename='js/team_season_stats.js') }}"></script>
+<script src="{{ url_for('static', filename='js/stat_buttons.js') }}"></script>
+<script src="{{ url_for('static', filename='js/match_preview_main.js') }}"></script> <!-- ✅ Après -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const matchId = {{ match.id | tojson }};
-    function loadTeamGoalSeries(teamId, targetId, fixtureId) {
-    fetch(`/team/${teamId}/goal_series?fixture_id=${fixtureId}`)
-        .then(res => res.json())
-        .then(data => {
-          const container = document.getElementById(targetId);
-          if (!container) return;
-          container.innerHTML = '';
-        
-          const streakDiv = document.createElement("div");
-          streakDiv.className = "goal-streak";
-          data.series.forEach(item => {
-            const card = document.createElement("div");
-            card.className = "goal-box";
-            card.textContent = item.goals;
-            streakDiv.appendChild(card);
-          });
-        
-          const rankDiv = document.createElement("div");
-          rankDiv.className = "attack-rank";
-          if (data.attack_rank) {
-            rankDiv.textContent = `${data.attack_rank}ᵉ`;
-            if (data.attack_rank <= 3) {
-            rankDiv.classList.add("rank-top");
-          } else if (data.attack_rank >= data.team_count - 2) {
-            rankDiv.classList.add("rank-bottom");
-          } else {
-            rankDiv.classList.add("rank-mid");
-          }
-
-          }
-
-        
-          const wrapper = document.createElement("div");
-          wrapper.className = "goal-streak-wrapper";
-          wrapper.appendChild(rankDiv);
-          wrapper.appendChild(streakDiv);
-          container.appendChild(wrapper);
-
-        });
-    }
-
-
-    const homeTeamId = {{ match.home_team_id }};
-    const awayTeamId = {{ match.away_team_id }};
-    loadTeamGoalSeries(homeTeamId, "home-goal-series", matchId);
-    loadTeamGoalSeries(awayTeamId, "away-goal-series", matchId);
-
-
-    const toggleBtn = document.getElementById("togglePanel");
-  
-    toggleBtn.addEventListener("click", () => {
-      const isCollapsed = statPanel.classList.contains("collapsed");
-  
-      statPanel.classList.toggle("collapsed", !isCollapsed);
-      statPanel.classList.toggle("expanded", isCollapsed);
-      playerListBlock.classList.toggle("collapsed", isCollapsed);
-      playerListBlock.classList.toggle("expanded", !isCollapsed);
-      statContent.style.display = isCollapsed ? "block" : "none";
-  
-      const toggleIcon = document.getElementById("toggle-icon");
-      toggleIcon.textContent = isCollapsed ? "▲" : "▼";
-  
-      document.body.classList.toggle("chart-visible", isCollapsed);
-    });
-  
-    const statPanel = document.getElementById("statPanel");
-    const playerListBlock = document.getElementById("playerListBlock");
-    const statContent = document.getElementById("statContent");
-    const chartBlock = document.getElementById("player-chart");
-    const chartCanvas = document.getElementById("chartCanvas");
-    const formBlock = document.getElementById("player-form");
-    const playerNameEl = document.getElementById("selected-player-name");
-    const playerRows = document.querySelectorAll(".player-item");
-    let chart = null;
-    let currentPlayerId = null;
-  
-    const statOptions = {
-      goals: [
-        { label: "X1", cut: 1, filter: "" },
-        { label: "X2", cut: 2, filter: "" },
-        { label: "MT", cut: 1, filter: "first_half" },
-        { label: "2MT", cut: 1, filter: "both_halves" }
-      ],
-      assists: [
-        { label: "X1", cut: 1, filter: "" },
-        { label: "X2", cut: 2, filter: "" }
-      ],
-      intervalle: [
-        { label: "0-15", cut: 1, filter: "0-15" },
-        { label: "15-30", cut: 1, filter: "15-30" },
-        { label: "30-45", cut: 1, filter: "30-45" },
-        { label: "45-60", cut: 1, filter: "45-60" },
-        { label: "60-75", cut: 1, filter: "60-75" },
-        { label: "75-90", cut: 1, filter: "75-90" }
-      ],
-      minutes: [
-        { label: "30+", cut: 30, filter: "" },
-        { label: "60+", cut: 60, filter: "" },
-        { label: "90", cut: 90, filter: "" }
-      ]
-    };
-
-  
-    document.getElementById("stat-buttons").innerHTML = Object.keys(statOptions).map(stat =>
-      `<button class="stat-btn" data-stat="${stat}" type="button">${stat.charAt(0).toUpperCase() + stat.slice(1)}</button>`
-    ).join("");
-  
-    document.querySelectorAll(".stat-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const stat = btn.dataset.stat;
-  
-        // 🧠 correction ici : si "intervalle", on force stat "goals"
-        const trueStat = (stat === "intervalle") ? "goals" : stat;
-        document.getElementById("stat").value = trueStat;
-  
-        document.querySelectorAll(".stat-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-  
-        const sub = document.getElementById("sub-options");
-        sub.innerHTML = "";
-  
-        const options = statOptions[stat] || [];
-        options.forEach(opt => {
-          const subBtn = document.createElement("button");
-          subBtn.textContent = opt.label;
-          subBtn.className = "sub-btn";
-          subBtn.type = "button";
-          subBtn.onclick = () => {
-            document.getElementById("cut").value = opt.cut;
-            document.getElementById("filter").value = opt.filter;
-  
-            document.querySelectorAll(".sub-btn").forEach(b => b.classList.remove("active"));
-            subBtn.classList.add("active");
-  
-            loadChart();
-          };
-          sub.appendChild(subBtn);
-        });
-  
-        sub.style.display = options.length > 0 ? "block" : "none";
-      });
-    });
-  
-    playerRows.forEach((row, i) => {
-  row.addEventListener("click", () => {
-    playerRows.forEach(r => r.classList.remove("active"));
-    row.classList.add("active");
-    currentPlayerId = row.dataset.id;
-    playerNameEl.textContent = row.dataset.name;
-    statPanel.classList.replace("collapsed", "expanded");
-    playerListBlock.classList.replace("expanded", "collapsed");
-    statContent.style.display = "block";
-    formBlock.style.display = "block";
-    chartBlock.classList.replace("chart-hidden", "chart-visible");
-    chartBlock.style.display = "block";
-    chartCanvas.scrollIntoView({ behavior: "smooth" });
-    setTimeout(() => { loadChart(); }, 300);
-  });
-});
-
-let selectedRowIndex = -1;
-let loadChartTimeout = null;
-
-document.addEventListener("keydown", (e) => {
-  if (["ArrowDown", "ArrowUp"].includes(e.key)) {
-    e.preventDefault();
-    const rows = Array.from(document.querySelectorAll(".player-item"));
-
-    if (selectedRowIndex === -1) {
-      selectedRowIndex = rows.findIndex(row => row.classList.contains("active"));
-    }
-
-    if (e.key === "ArrowDown") {
-      selectedRowIndex = Math.min(selectedRowIndex + 1, rows.length - 1);
-    } else if (e.key === "ArrowUp") {
-      selectedRowIndex = Math.max(selectedRowIndex - 1, 0);
-    }
-
-    if (rows[selectedRowIndex]) {
-      rows.forEach(r => r.classList.remove("active"));
-      const row = rows[selectedRowIndex];
-      row.classList.add("active");
-      currentPlayerId = row.dataset.id;
-      playerNameEl.textContent = row.dataset.name;
-      statPanel.classList.replace("collapsed", "expanded");
-      playerListBlock.classList.replace("expanded", "collapsed");
-      statContent.style.display = "block";
-      formBlock.style.display = "block";
-      chartBlock.classList.replace("chart-hidden", "chart-visible");
-      chartBlock.style.display = "block";
-      chartCanvas.scrollIntoView({ behavior: "smooth" });
-
-      clearTimeout(loadChartTimeout);
-      loadChartTimeout = setTimeout(() => {
-        loadChart();
-      }, 400);
-    }
-  }
-});
-
-document.getElementById("statForm").addEventListener("submit", e => {
-  e.preventDefault();
-  loadChart();
-});
-
-document.getElementById("slider-left").addEventListener("click", () => {
-  document.getElementById("performance-cards").scrollBy({ left: -150, behavior: "smooth" });
-});
-
-document.getElementById("slider-right").addEventListener("click", () => {
-  document.getElementById("performance-cards").scrollBy({ left: 150, behavior: "smooth" });
-});
-  
-    function loadChart() {
-  const stat = document.getElementById("stat").value;
-  const cut = parseInt(document.getElementById("cut").value);
-  let limit = parseInt(document.getElementById("limit").value);
-  if (isNaN(limit) || limit < 1) limit = 5;
-  const filter = document.getElementById("filter").value;
-  const chartBlock = document.getElementById("player-chart");
-  const chartCanvas = document.getElementById("chartCanvas");
-
-  fetch(`/player/${currentPlayerId}/history?stat=${stat}&limit=${limit}&filter=${filter}&cut=${cut}&fixture_id=${matchId}`)
-    .then(res => {
-      if (!res.ok) throw new Error("Erreur de chargement des données");
-      return res.json();
-    })
-    .then(data => {
-      if (!data.history) {
-        console.warn("Aucune donnée disponible pour ce joueur");
-        return;
-      }
-
-      chartBlock.classList.replace("chart-hidden", "chart-visible");
-      chartBlock.style.display = "block";
-
-      const labels = data.history.map(m => m.date);
-      const values = data.history.map(m => m.value);
-      const scores = data.history.map(m => m.score || "");
-      const minutes = data.history.map(m => m.minutes || 0);
-      const teamInfos = data.history.map(m => ({
-        player_team_id: m.player_team_id,
-        home_team_id: m.home_team_id,
-        away_team_id: m.away_team_id
-      }));
-      const fixtureIds = data.history.map(m => m.fixture_id);
-
-      let colors = [];
-      if (filter === "first_half") {
-        colors = data.history.map(m => {
-          if (m.status === "mt") return "#4CAF50";
-          if (m.status === "2mt") return "#999999";
-          return "#F44336";
-        });
-      } else {
-        colors = data.history.map(m => {
-          if (m.value >= cut) return "#4CAF50"; // vert
-          if (m.value === 0.1 || m.status === "none") return "#F44336"; // rouge
-          return "#ccc"; // gris
-        });
-
-
-      }
-
-      if (chart) chart.destroy();
-
-      chart = new Chart(chartCanvas, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: stat.charAt(0).toUpperCase() + stat.slice(1),
-            data: values,
-            backgroundColor: colors,
-            datalabels: {
-              anchor: 'end',
-              align: 'start',
-              color: '#fff',
-              font: context => {
-                const count = context.chart.data.labels.length;
-                let size = 14;
-                if (count > 15) size = 10;
-                if (count > 20) size = 8;
-                if (count > 25) size = 6;
-                return {
-                  family: "'Chakra Petch', sans-serif",
-                  weight: 'bold',
-                  size: size
-                };
-              },
-              formatter: (value, context) => `${minutes[context.dataIndex]}'`
-            }
-          }],
-          scores: scores,
-          teams: teamInfos,
-          fixtureIds: fixtureIds
-        },
-        options: {
-          responsive: true,
-          onClick: function(evt, elements) {
-            if (elements.length > 0) {
-              const index = elements[0].index;
-              const fixtureId = this.data.fixtureIds[index];
-              if (fixtureId) {
-                window.open(`/match/${fixtureId}`, "_blank");
-              }
-            }
-          },
-          animation: { duration: 400 },
-          plugins: {
-            tooltip: {
-              usePointStyle: true,
-              backgroundColor: "#222",
-              titleColor: "#f1895c",
-              labelTextColor: () => "#fff",
-              callbacks: {
-                title: (ctx) => {
-                  const rawDate = ctx[0].label.split(" ")[0];  // extrait la date
-                  const [year, month, day] = rawDate.split("-");
-                  return `${day}-${month}-${year}`;
-                },
-                label: function(context) {
-                  const val = context.raw;
-                  const idx = context.dataIndex;
-                  const score = context.chart.data.scores[idx];
-                  const teams = context.chart.data.teams[idx];
-                  if (!score || !teams) return [`But : ${val}`];
-
-                  const match = score.match(/^(.+?) (\d+) - (\d+) (.+)$/);
-                  if (!match) return [`But : ${val}`, `Score : ${score}`];
-
-                  const [, home, hg, ag, away] = match;
-                  const pt = teams.player_team_id;
-                  const ht = teams.home_team_id;
-                  const at = teams.away_team_id;
-
-                  let formattedScore = "";
-                  if (pt === ht) {
-                    formattedScore = `${home} [${hg}] - ${ag} ${away}`;
-                  } else if (pt === at) {
-                    formattedScore = `${home} ${hg} - [${ag}] ${away}`;
-                  } else {
-                    formattedScore = score;
-                  }
-
-                  return [`But : ${val}`, `${formattedScore}`];
-                }
-              }
-            },
-            annotation: {
-              annotations: {
-                cutZone: {
-                  type: 'box',
-                  yMin: cut + 0.01,
-                  yMax: 'max',
-                  backgroundColor: 'rgba(100, 100, 100, 0.08)',
-                  borderWidth: 0,
-                  label: {
-                    display: true,
-                    content: 'Zone à atteindre',
-                    position: 'start',
-                    color: '#666',
-                    font: { size: 10 }
-                  }
-                }
-              }
-            }
-          },
-          scales: {
-  y: {
-    beginAtZero: true,
-    suggestedMax: cut >= 1 ? cut + 1 : 1
-  },
-  x: {
-    ticks: {
-      callback: function(value, index, ticks) {
-        const label = this.getLabelForValue(value);
-        const rawDate = label.split(" ")[0]; // Extrait "YYYY-MM-DD"
-        const [year, month, day] = rawDate.split("-");
-        return `${day}-${month}-${year}`; // ➜ DD-MM-YYYY
-      },
-      font: {
-        family: "'Chakra Petch', sans-serif",
-        size: 12
-      }
-    }
-  }
-}
-        },
-        plugins: [ChartDataLabels, Chart.registry.getPlugin('annotation')]
-      });
-    // ✅ Bloc des cartes de performance
-const perf = data.performance;
-const cards = [
-  { label: "Ls 5", value: perf.last_5 },
-  { label: "Ls 10", value: perf.last_10 },
-  { label: "Ls 20", value: perf.last_20 },
-  { label: "H2H", value: perf.h2h },
-  { label: "Dom", value: perf.home },
-  { label: "Ext", value: perf.away },
-  { label: "Saison", value: perf.season }
-];
-
-const container = document.getElementById("performance-cards");
-container.innerHTML = "";
-const currentLimit = limit;
-
-cards.forEach(card => {
-  const div = document.createElement("div");
-  div.className = "performance-card";
-  let ratio = "-", percent = "-";
-  if (card.value && typeof card.value === "string") {
-    const match = card.value.match(/(\d+\/\d+)\s\((\d+)%\)/);
-    if (match) [ratio, percent] = match.slice(1);
-  }
-
-  div.innerHTML = `
-    <div class="card-top"><span class="card-label">${card.label}</span></div>
-    <div class="card-main"><span class="card-percent">${percent !== "-" ? percent + "%" : "-"}</span></div>
-    <div class="card-sub">${ratio || "-"}</div>
-  `;
-
-  if (card.label.startsWith("Ls")) {
-    const limitValue = parseInt(card.label.replace("Ls ", "")) || 5;
-    div.style.cursor = "pointer";
-    if (limitValue === currentLimit) div.classList.add("active");
-    div.addEventListener("click", () => {
-      document.getElementById("limit").value = limitValue;
-      document.querySelectorAll(".performance-card").forEach(c => {
-        if (c.querySelector(".card-label")?.textContent.startsWith("Ls")) {
-          c.classList.remove("active");
-        }
-      });
-      div.classList.add("active");
-      loadChart();
-    });
-  }
-
-  container.appendChild(div);
-});
-
-    })
-    .catch(err => {
-      console.error("Erreur lors du chargement du graphique :", err);
-    });
-}
-
-
-  
-    const table = document.querySelector(".player-table");
-    const tbody = table.querySelector("tbody");
-    const headers = table.querySelectorAll("th[data-sort]");
-    let sortDirection = -1;
-    let activeSortKey = "goals";
-  
-    const defaultDescending = ["goals", "assists", "minutes", "shots_total", "shots_on_target", "goals_per_game", "assists_per_game", "minutes_per_game"];
-  
-    headers.forEach(th => {
-      th.style.cursor = "pointer";
-      th.addEventListener("click", () => {
-        const key = th.dataset.sort;
-        const colIndex = th.cellIndex;
-        const rows = Array.from(tbody.querySelectorAll("tr"));
-      
-        const getValue = row => {
-          const cell = row.cells[colIndex];
-          const text = cell.textContent.trim();
-          const num = parseFloat(text.replace(",", "."));
-          return isNaN(num) ? text.toLowerCase() : num;
-        };
-      
-        if (activeSortKey === key) {
-          sortDirection *= -1;
-        } else {
-          activeSortKey = key;
-          sortDirection = defaultDescending.includes(key) ? -1 : 1;
-        }
-      
-        document.querySelectorAll(".player-table th, .player-table td").forEach(cell => {
-          cell.classList.remove("sorted-col");
-        });
-      
-        th.classList.add("sorted-col");
-        rows.forEach(row => {
-          if (row.cells[colIndex]) {
-            row.cells[colIndex].classList.add("sorted-col");
-          }
-        });
-      
-        rows.sort((a, b) => {
-          const valA = getValue(a);
-          const valB = getValue(b);
-          return valA > valB ? sortDirection : valA < valB ? -sortDirection : 0;
-        });
-      
-        rows.forEach(row => tbody.appendChild(row));
-      });
-      // ➕ Tri automatique au chargement sur "Buts"
-const defaultHeader = document.querySelector('th[data-sort="goals"]');
-if (defaultHeader) {
-  defaultHeader.click(); // Tri croissant
-  defaultHeader.click(); // Tri décroissant
-}
-// === Filtrage Domicile / Extérieur ===
-const teamFilterButtons = document.querySelectorAll(".filter-btn");
-
-teamFilterButtons.forEach(btn => {
-  btn.addEventListener("click", () => {
-    const team = btn.dataset.team;
-
-    // Bouton actif
-    teamFilterButtons.forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-
-    // Affiche ou masque les lignes du tableau
-    document.querySelectorAll(".player-item").forEach(row => {
-      const rowTeam = row.dataset.team;
-      row.style.display = (team === "all" || rowTeam === team) ? "" : "none";
-    });
-  });
-});
-
-    }); // ✅ une seule fermeture ici
-  }); // ✅ FIN de document.addEventListener("DOMContentLoaded", ...)
-</script>
 
   
 {% else %}
