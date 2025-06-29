@@ -10,7 +10,7 @@ function loadChartConfig(playerId, matchId) {
   fetch(`/player/${playerId}/history?stat=${stat}&limit=${limit}&filter=${filter}&cut=${cut}&fixture_id=${matchId}`)
     .then(res => res.json())
     .then(data => {
-      // ✅ Supprimer l'ancien graphique pour éviter le flash/empilement
+      // ✅ Supprimer l'ancien graphique
       if (window.chartInstance) {
         window.chartInstance.destroy();
       }
@@ -34,7 +34,6 @@ function loadChartConfig(playerId, matchId) {
         return (m.value >= cut) ? "#4CAF50" : "#F44336";
       });
 
-      // ✅ Création du nouveau chart
       window.chartInstance = new Chart(chartCanvas, {
         type: 'bar',
         data: {
@@ -48,7 +47,9 @@ function loadChartConfig(playerId, matchId) {
         options: {
           responsive: true,
           animation: { duration: 400 },
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false }
+          },
           scales: {
             y: {
               beginAtZero: true,
@@ -69,11 +70,21 @@ function loadChartConfig(playerId, matchId) {
                 font: { family: "'Chakra Petch', sans-serif", size: 12 }
               }
             }
+          },
+          onClick: (e, elements) => {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              const fixtureId = data.history[index].fixture_id;
+              if (fixtureId) {
+                window.location.href = `/match/${fixtureId}`;
+              }
+            }
           }
         }
       });
 
-      // ✅ Bloc des cartes de performance (Last5, Last10, etc)
+
+      // ✅ Cartes de performance (Last5, Last10, etc)
       const perf = data.performance;
       const container = document.getElementById("performance-cards");
       container.innerHTML = "";
