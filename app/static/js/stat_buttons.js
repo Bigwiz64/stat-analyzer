@@ -28,7 +28,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const statButtonsContainer = document.getElementById("stat-buttons");
   if (!statButtonsContainer) return;
 
-  // === Création des boutons principaux (Goals, Assists, etc) ===
   statButtonsContainer.innerHTML = Object.keys(statOptions).map(stat =>
     `<button class="stat-btn" data-stat="${stat}" type="button">${stat.charAt(0).toUpperCase() + stat.slice(1)}</button>`
   ).join("");
@@ -39,11 +38,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const trueStat = (stat === "intervalle") ? "goals" : stat;
       document.getElementById("stat").value = trueStat;
 
-      // ✅ Mise à jour du visuel actif
       document.querySelectorAll(".stat-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
 
-      // ✅ Génération des sous-options
       const sub = document.getElementById("sub-options");
       sub.innerHTML = "";
 
@@ -60,7 +57,6 @@ document.addEventListener("DOMContentLoaded", () => {
           document.querySelectorAll(".sub-btn").forEach(b => b.classList.remove("active"));
           subBtn.classList.add("active");
 
-          // ✅ Recharge du chart SEULEMENT si un joueur est sélectionné
           if (window.loadChartConfig && window.currentPlayerId && window.MATCH_ID) {
             window.loadChartConfig(window.currentPlayerId, window.MATCH_ID);
           }

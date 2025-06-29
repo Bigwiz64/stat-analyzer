@@ -10,6 +10,7 @@ function loadChartConfig(playerId, matchId) {
   fetch(`/player/${playerId}/history?stat=${stat}&limit=${limit}&filter=${filter}&cut=${cut}&fixture_id=${matchId}`)
     .then(res => res.json())
     .then(data => {
+      // ✅ Supprimer l'ancien graphique pour éviter le flash/empilement
       if (window.chartInstance) {
         window.chartInstance.destroy();
       }
@@ -18,39 +19,22 @@ function loadChartConfig(playerId, matchId) {
       const values = data.history.map(m => parseFloat(m.value));
 
       const currentFilter = document.getElementById("filter").value;
-
       const colors = data.history.map(m => {
         const isX1 = currentFilter === "goals";
         const isX2 = currentFilter === "" || currentFilter === null;
         const isMT = currentFilter === "first_half";
         const is2MT = currentFilter === "both_halves";
-            
-        // ✅ X1 : Vert si but, rouge sinon
-        if (isX1) {
+
+        if (isX1) return (m.value >= cut) ? "#4CAF50" : "#F44336";
+        if (isX2) {
+          if (m.has_goal_but_not_first_half) return "#ccc";
           return (m.value >= cut) ? "#4CAF50" : "#F44336";
         }
-      
-        // ✅ X2 : Gris si 1 but (has_goal_but_not_first_half == true), Vert si 2+, Rouge si 0
-        if (isX2) {
-          if (m.has_goal_but_not_first_half) {
-            return "#ccc";  // Gris pour les 1 but
-          } else if (m.value >= cut) {
-            return "#4CAF50";  // Vert si 2 buts ou plus
-          } else {
-            return "#F44336";  // Rouge si 0 but
-          }
-        }
-      
-        // ✅ MT et 2MT : Gris si has_goal_but_not_first_half, sinon logique normale
-        if ((isMT || is2MT) && m.has_goal_but_not_first_half) {
-          return "#ccc";
-        }
-      
-        // ✅ Cas par défaut : logique verte ou rouge
+        if ((isMT || is2MT) && m.has_goal_but_not_first_half) return "#ccc";
         return (m.value >= cut) ? "#4CAF50" : "#F44336";
       });
 
-
+      // ✅ Création du nouveau chart
       window.chartInstance = new Chart(chartCanvas, {
         type: 'bar',
         data: {
@@ -64,9 +48,7 @@ function loadChartConfig(playerId, matchId) {
         options: {
           responsive: true,
           animation: { duration: 400 },
-          plugins: {
-            legend: { display: false }
-          },
+          plugins: { legend: { display: false } },
           scales: {
             y: {
               beginAtZero: true,
@@ -74,9 +56,7 @@ function loadChartConfig(playerId, matchId) {
               suggestedMax: Math.max(cut + 1, Math.max(...values) + 1),
               ticks: {
                 stepSize: 1,
-                callback: function(value) {
-                  return Number.isInteger(value) ? value : null;
-                }
+                callback: value => Number.isInteger(value) ? value : null
               }
             },
             x: {
@@ -86,17 +66,14 @@ function loadChartConfig(playerId, matchId) {
                   const [year, month, day] = label.split("-");
                   return `${day}/${month}/${year}`;
                 },
-                font: {
-                  family: "'Chakra Petch', sans-serif",
-                  size: 12
-                }
+                font: { family: "'Chakra Petch', sans-serif", size: 12 }
               }
             }
           }
         }
       });
 
-      // === Bloc des cartes de performance ===
+      // ✅ Bloc des cartes de performance (Last5, Last10, etc)
       const perf = data.performance;
       const container = document.getElementById("performance-cards");
       container.innerHTML = "";
@@ -117,17 +94,16 @@ function loadChartConfig(playerId, matchId) {
         let ratio = "-", percent = "-", total_goals = "-";
 
         if (card.data && typeof card.data === "string") {
-          const match = card.data.match(/(\d+)\/(\d+)\s\((\d+)%\)\s\|\s(\d+)\sBut/);
-          if (match) {
-            ratio = `${match[1]}/${match[2]}`;
-            percent = match[3];
-            total_goals = match[4];
-          } else {
-            const legacyMatch = card.data.match(/(\d+)\/(\d+)\s\((\d+)%\)/);
-            if (legacyMatch) {
-              ratio = `${legacyMatch[1]}/${legacyMatch[2]}`;
-              percent = legacyMatch[3];
-            }
+          const detailed = card.data.match(/(\d+)\/(\d+)\s\((\d+)%\)\s\|\s(\d+)\sBut/);
+          const legacy = card.data.match(/(\d+)\/(\d+)\s\((\d+)%\)/);
+
+          if (detailed) {
+            ratio = `${detailed[1]}/${detailed[2]}`;
+            percent = detailed[3];
+            total_goals = detailed[4];
+          } else if (legacy) {
+            ratio = `${legacy[1]}/${legacy[2]}`;
+            percent = legacy[3];
           }
         }
 

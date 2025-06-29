@@ -8,41 +8,6 @@ function initPlayerPanel(matchId) {
   const playerRows = document.querySelectorAll(".player-item");
   let currentPlayerId = null;
 
-  console.log("[INIT] Initialisation du panneau joueur…");
-
-  // Ajout du listener sur chaque joueur
-  playerRows.forEach((row) => {
-    row.addEventListener("click", () => {
-      console.log(`[CLICK] Joueur cliqué : ID ${row.dataset.id} - Nom : ${row.dataset.name}`);
-
-      // Met à jour le joueur actif
-      playerRows.forEach(r => r.classList.remove("active"));
-      row.classList.add("active");
-
-      currentPlayerId = row.dataset.id;
-      window.currentPlayerId = currentPlayerId;  // Stockage global pour d'autres scripts
-      playerNameEl.textContent = row.dataset.name;
-
-      // Ouvre le panneau stats
-      statPanel.classList.replace("collapsed", "expanded");
-      playerListBlock.classList.replace("expanded", "collapsed");
-      statContent.style.display = "block";
-      formBlock.style.display = "block";
-      chartBlock.classList.replace("chart-hidden", "chart-visible");
-      chartBlock.style.display = "block";
-      statPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-
-      // Appel du graphique (si la fonction existe déjà)
-      if (window.loadChartConfig) {
-        console.log(`[LOAD] Chargement des stats pour joueur ${currentPlayerId} sur match ${matchId}`);
-        window.loadChartConfig(currentPlayerId, matchId);
-      } else {
-        console.warn("[ERREUR] Fonction window.loadChartConfig non trouvée !");
-      }
-    });
-  });
-
-  // Toggle pour ouvrir/fermer le panneau manuellement
   const toggleBtn = document.getElementById("togglePanel");
   toggleBtn.addEventListener("click", () => {
     const isCollapsed = statPanel.classList.contains("collapsed");
@@ -55,15 +20,31 @@ function initPlayerPanel(matchId) {
     document.body.classList.toggle("chart-visible", isCollapsed);
   });
 
-  // Soumission du formulaire
+  playerRows.forEach((row) => {
+    row.addEventListener("click", () => {
+      playerRows.forEach(r => r.classList.remove("active"));
+      row.classList.add("active");
+      currentPlayerId = row.dataset.id;
+      window.currentPlayerId = currentPlayerId;
+      playerNameEl.textContent = row.dataset.name;
+      statPanel.classList.replace("collapsed", "expanded");
+      playerListBlock.classList.replace("expanded", "collapsed");
+      statContent.style.display = "block";
+      formBlock.style.display = "block";
+      chartBlock.classList.replace("chart-hidden", "chart-visible");
+      chartBlock.style.display = "block";
+      statPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => { window.loadChartConfig(currentPlayerId, matchId); }, 300);
+    });
+  });
+
   document.getElementById("statForm").addEventListener("submit", e => {
     e.preventDefault();
-    if (currentPlayerId && window.loadChartConfig) {
+    if (currentPlayerId) {
       window.loadChartConfig(currentPlayerId, matchId);
     }
   });
 
-  // Boutons slider
   document.getElementById("slider-left").addEventListener("click", () => {
     document.getElementById("performance-cards").scrollBy({ left: -150, behavior: "smooth" });
   });
@@ -71,5 +52,5 @@ function initPlayerPanel(matchId) {
     document.getElementById("performance-cards").scrollBy({ left: 150, behavior: "smooth" });
   });
 
-  console.log("[INIT] initPlayerPanel terminé.");
+  // ✅ Correction : On ne précharge plus de joueur par défaut au démarrage
 }
