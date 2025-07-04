@@ -7,7 +7,9 @@ from .data_access import (
     get_match_with_cumulative_player_stats,
     get_team_goal_series_with_rank,
     get_team_season_stats,
-    get_current_season_int
+    get_current_season_int,
+    get_team_goal_ratio,
+    get_team_avg_goals_per_match
 )
 import sqlite3
 from datetime import datetime, timedelta
@@ -770,14 +772,23 @@ def team_season_stats(team_id):
     return jsonify(stats)
 
 @main.route("/team/<int:team_id>/goal_ratio")
-def api_team_goal_ratio(team_id):
-    from flask import request, jsonify
-    from .data_access import get_team_goal_ratio
+def team_goal_ratio(team_id):
+    location = request.args.get("location", "")
+    stat_type = request.args.get("type", "for")
+    league_id = request.args.get("league_id", type=int)
+    season = request.args.get("season", type=int)
 
-    team_id = int(request.view_args['team_id'])
-    location = request.args.get("location")  # home / away / None
-    goal_type = request.args.get("type", "for")  # for / against
-
-    ratio = get_team_goal_ratio(team_id, goal_type, location)
+    ratio = get_team_goal_ratio(team_id, location, stat_type, league_id, season)
     return jsonify({"ratio": ratio})
+
+@main.route("/team/<int:team_id>/goal_avg")
+def team_goal_avg(team_id):
+    location = request.args.get("location", "")
+    stat_type = request.args.get("type", "for")
+    league_id = request.args.get("league_id", type=int)
+    season = request.args.get("season", type=int)
+
+    ratio = get_team_avg_goals_per_match(team_id, location, stat_type, league_id, season)
+    return jsonify({"ratio": ratio})
+
 

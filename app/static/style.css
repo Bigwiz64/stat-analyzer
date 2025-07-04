@@ -2037,12 +2037,6 @@ body.chart-visible .player-list-block {
   text-align: right;
 }
 
-/* Barre inversée (gauche) */
-.stat-bar-track.reverse .bar-label {
-  right: auto;
-  left: 0;
-  text-align: left;
-}
 .bar-label {
   position: absolute;
   top: -22px;
@@ -2059,13 +2053,6 @@ body.chart-visible .player-list-block {
   left: auto;
   text-align: right;
 }
-
-/* Pour les barres inversées (home) */
-.stat-bar-track.reverse .bar-label {
-  left: 0;
-  right: auto;
-  text-align: left;
-}
 /* Position par défaut : texte à droite pour away */
 .stat-bar-track .bar-label {
   position: absolute;
@@ -2078,23 +2065,74 @@ body.chart-visible .player-list-block {
   text-align: right;
 }
 
-/* Pour les barres inversées (home = à gauche) */
-.stat-bar-track.reverse .bar-label {
-  left: 0;
-  right: auto;
-  text-align: left;
-}
-.stat-bar-track.reverse .bar-label {
-  left: 0;
-  right: auto;
-  text-align: left;
-}
-
 .stat-bar-track:not(.reverse) .bar-label {
   right: 0;
   left: auto;
   text-align: right;
 }
+
+/* --- Correction globale --- */
+
+/* Par défaut : barres à droite (Extérieur) */
+.stat-bar-track {
+  position: relative;
+  height: 18px;
+  border-radius: 10px;
+  background: #eee;
+  margin: 10px 0;
+  overflow: visible;
+}
+
+/* Pourcentage */
+.bar-label {
+  position: absolute;
+  top: -22px;
+  font-weight: bold;
+  color: #2E3244;
+  font-size: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* --- Away (droite) --- */
+.stat-bar-track:not(.reverse) .bar-label {
+  right: 0;
+  text-align: right;
+}
+
+/* --- Home (gauche) : on aligne sans inverser le texte --- */
+
+/* Barres de progression */
+.stat-bar-fill {
+  height: 100%;
+  background-color: #f1895c;
+  border-radius: 10px;
+  position: relative;
+  transform-origin: left;
+}
+/* Inverser seulement la direction de la barre, sans inverser le texte */
+.stat-bar-track.reverse {
+  transform: scaleX(-1);
+  position: relative;
+  overflow: visible;
+}
+
+/* Garde le texte du label non inversé */
+.stat-bar-track.reverse .bar-label {
+  transform: scaleX(-1); /* remet le texte dans le bon sens */
+  left: 0;
+  text-align: left;
+}
+
+/* Barre normale (non inversée) */
+.stat-bar-track:not(.reverse) .bar-label {
+  right: 0;
+  left: auto;
+  text-align: right;
+}
+
+
+
 
 
 

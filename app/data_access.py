@@ -149,11 +149,9 @@ def get_match_with_cumulative_player_stats(fixture_id):
             JOIN players p ON ps.player_id = p.id
             JOIN fixtures f ON ps.fixture_id = f.id
             WHERE f.date < ?
-              AND f.league_id = ?
-              AND f.season = ?
               AND (ps.team_id = ? OR ps.team_id = ?)
             GROUP BY ps.player_id
-        """, (match_date, league_id, season, home_team_id, away_team_id))
+        """, (match_date, home_team_id, away_team_id))
 
         stats = cursor.fetchall()
 
@@ -906,38 +904,95 @@ def get_current_season_int():
     today = datetime.today()
     return today.year if today.month >= 7 else today.year - 1
 
-def get_team_goal_ratio(team_id, goal_type="for", location=None):
-    """
-    Calcule le ratio de buts marqués (goal_type='for') ou encaissés (goal_type='against') 
-    selon l'équipe et éventuellement le lieu (home, away).
-    """
-    import sqlite3
-    from .data_access import get_current_season_int
-
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
+def get_team_goal_ratio(team_id, location="", stat_type="for", league_id=None, season=None):
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    season = get_current_season_int()
+    if location == "home":
+        condition = "f.home_team_id = ?"
+        goals_column = "f.home_goals" if stat_type == "for" else "f.away_goals"
+        params = [team_id]
+    elif location == "away":
+        condition = "f.away_team_id = ?"
+        goals_column = "f.away_goals" if stat_type == "for" else "f.home_goals"
+        params = [team_id]
+    else:
+        condition = "(f.home_team_id = ? OR f.away_team_id = ?)"
+        goals_column = f"""
+            CASE 
+                WHEN f.home_team_id = ? THEN 
+                    {"f.home_goals" if stat_type == "for" else "f.away_goals"}
+                ELSE 
+                    {"f.away_goals" if stat_type == "for" else "f.home_goals"}
+            END
+        """
+        params = [team_id, team_id, team_id]
 
-    cursor.execute("""
-        SELECT home_team_id, away_team_id, home_goals, away_goals
-        FROM fixtures
-        WHERE season = ? AND home_goals IS NOT NULL AND away_goals IS NOT NULL
-    """, (season,))
-    matches = cursor.fetchall()
+    # Ajout du filtre saison + matchs joués
+    where_clause = f"""
+        WHERE {condition}
+        AND f.home_goals IS NOT NULL
+        AND f.away_goals IS NOT NULL
+    """
 
-    total_goals = 0
-    total_matches = 0
+    query = f"""
+        SELECT COUNT(*) as total_matches,
+               SUM(CASE WHEN {goals_column} > 0 THEN 1 ELSE 0 END) as matches_with_goals
+        FROM fixtures f
+        {where_clause}
+    """
 
-    for h_id, a_id, h_goals, a_goals in matches:
-        if team_id == h_id and (location in (None, "home")):
-            total_matches += 1
-            total_goals += h_goals if goal_type == "for" else a_goals
-        elif team_id == a_id and (location in (None, "away")):
-            total_matches += 1
-            total_goals += a_goals if goal_type == "for" else h_goals
+    print("📊 DEBUG — SQL Query:\n", query)
+    print("🧮 Params:", params)
 
+    cursor.execute(query, params)
+    total_matches, matches_with_goals = cursor.fetchone()
     conn.close()
-    ratio = round(total_goals / total_matches, 2) if total_matches > 0 else 0
-    return ratio
+
+    print(f"🎯 Calcul: {matches_with_goals} match(s) avec but sur {total_matches} joué(s) → {round((matches_with_goals / total_matches) * 100, 1) if total_matches else 0}%")
+
+    if not total_matches:
+        return 0
+
+    return round((matches_with_goals / total_matches) * 100, 1)
+
+def get_team_avg_goals_per_match(team_id, location="", stat_type="for", league_id=None, season=None):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    if location == "home":
+        condition = "f.home_team_id = ?"
+        goals_column = "f.home_goals" if stat_type == "for" else "f.away_goals"
+        params = [team_id]
+    elif location == "away":
+        condition = "f.away_team_id = ?"
+        goals_column = "f.away_goals" if stat_type == "for" else "f.home_goals"
+        params = [team_id]
+    else:
+        condition = "(f.home_team_id = ? OR f.away_team_id = ?)"
+        goals_column = f"""
+            CASE 
+                WHEN f.home_team_id = ? THEN {"f.home_goals" if stat_type == "for" else "f.away_goals"}
+                ELSE {"f.away_goals" if stat_type == "for" else "f.home_goals"}
+            END
+        """
+        params = [team_id, team_id, team_id]
+
+    query = f"""
+        SELECT COUNT(*) as total_matches,
+               SUM({goals_column}) as total_goals
+        FROM fixtures f
+        WHERE {condition}
+        AND f.home_goals IS NOT NULL AND f.away_goals IS NOT NULL
+    """
+    print("📊 SQL AVG Ratio:\n", query)
+    print("🧮 Params:", params)
+
+    cursor.execute(query, params)
+    total_matches, total_goals = cursor.fetchone()
+    conn.close()
+
+    if not total_matches:
+        return 0
+
+    return round(total_goals / total_matches, 2)  # ✅ Moyenne réelle (ex: 2.3)

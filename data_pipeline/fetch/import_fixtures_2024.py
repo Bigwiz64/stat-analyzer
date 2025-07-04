@@ -34,7 +34,7 @@ def get_season_from_date(date_str, league_id):
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    103, 113, 244, 71, 169, 239, 253
+    98
 ]
 
 SEASON_BY_LEAGUE = {
@@ -47,8 +47,8 @@ SEASON_BY_LEAGUE = {
 }
 
 DEFAULT_SEASON = 2024
-FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-06-01"
-TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-07-03"
+FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-02-01"
+TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-07-08"
 MODE = sys.argv[3] if len(sys.argv) > 3 else "complet"
 
 def insert_player_stats(fixture_id, season_str):
@@ -76,10 +76,10 @@ def insert_player_stats(fixture_id, season_str):
                 stats = entry["statistics"][0] if entry["statistics"] else {}
 
                 cursor.execute("""
-                    INSERT OR IGNORE INTO players (id, name, position)
-                    VALUES (?, ?, ?)
+                    INSERT OR IGNORE INTO players (id, name, position, team_id)
+                    VALUES (?, ?, ?, ?)
                 """, (
-                    player["id"], player["name"], player.get("position", "")
+                    player["id"], player["name"], player.get("position", ""), team_id
                 ))
 
                 cursor.execute("""
@@ -222,9 +222,10 @@ def update_players_table(team_ids, api_key, season):
                     country_flag = p.get("nationality")  # Tu peux améliorer ça si besoin
 
                     cursor.execute("""
-                        INSERT OR REPLACE INTO players (id, name, firstname, lastname, position, age, country, country_flag)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (player_id, name, firstname, lastname, position, age, nationality, country_flag))
+                        INSERT OR REPLACE INTO players (id, name, firstname, lastname, position, age, country, country_flag, team_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (player_id, name, firstname, lastname, position, age, nationality, country_flag, team_id))
+
 
                 print(f"✅ Équipe {team_id} mise à jour")
             except Exception as e:
