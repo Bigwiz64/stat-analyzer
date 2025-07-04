@@ -361,7 +361,7 @@ h1, h2, h3 {
 }
 
 .player-stats-table tbody tr:hover {
-  background-color: #f1f1f1;;
+  background-color: #f70e0e;;
 }
 
 .player-stats-table td {
@@ -487,8 +487,8 @@ h1, h2, h3 {
 
 /* Boutons de filtre */
 .team-toggle-buttons .filter-btn {
-  background-color: #516079;
-    color: #ffffff;
+  background-color: #eceef2;
+    color: #0d1b2a;
     border: none;
     padding: 8px 16px;
     margin: 4px;
@@ -498,11 +498,11 @@ h1, h2, h3 {
 }
 
 .team-toggle-buttons .filter-btn:hover {
-  background-color: #2E3244;;
+  background-color: #eceef2;;
 }
 
 .team-toggle-buttons .filter-btn.active {
-  background-color: #f1895c;
+  background-color: #ff6a00;
     color: #ffffff;
     font-weight: bold;;
 }
@@ -607,7 +607,7 @@ h1, h2, h3 {
 }
 
 .player-item:hover {
-  background-color: #f0f0f0;;
+  background-color: #eceef2;;
 }
 
 .form-block {
@@ -635,7 +635,7 @@ h1, h2, h3 {
 }
 
 .stat-btn.active {
-  background-color: #f1895c;
+  background-color: #ff6a00;
     color: white;
     font-weight: bold;;
 }
@@ -651,7 +651,7 @@ h1, h2, h3 {
 }
 
 button.active {
-  background-color: #f1895c;
+  background-color: #ff6a00;
     color: white;
     font-weight: bold;;
 }
@@ -1187,7 +1187,7 @@ padding: 6px 12px;
 
 
 #togglePanel {
-  background-color: #516079;
+  background-color: #2e3244;
   color: white;
   padding: 6px 12px;
   margin-bottom: 10px;
@@ -1202,8 +1202,8 @@ padding: 6px 12px;
   background-color: #f1895c;
 }
 .player-item.active {
-  background-color: #f1895c;
-  color: white;
+  background-color: #eceef2;
+  color: #383c4d;
   font-weight: bold;
 }
 canvas {
@@ -1516,8 +1516,11 @@ body.chart-visible .player-list-block.expanded {
 .match-panel {
   flex: 1;
   display: flex;
-  height: 100%;
-  overflow: hidden;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 20px;
+  height: auto;
+  overflow: visible;
 }
 
 /* Colonne gauche (liste joueurs) */
@@ -1537,7 +1540,7 @@ body.chart-visible .player-list-block {
 
 /* Table scrollable */
 .scrollable-player-list {
-  max-height: 530px;      /* Ajuste ici la hauteur visible (exemple : 450px = environ 10 lignes) */
+  max-height: 630px;      /* Ajuste ici la hauteur visible (exemple : 450px = environ 10 lignes) */
   overflow-y: auto;        /* Scroll vertical uniquement à l'intérieur de la liste des joueurs */
   border: 1px solid #ddd;  /* Optionnel : petite bordure de séparation */
   border-radius: 6px;      /* Coins arrondis pour un look plus propre */
@@ -1549,9 +1552,8 @@ body.chart-visible .player-list-block {
 
 /* Colonne droite (stat-panel) */
 .stat-panel.collapsed {
-  width: 0;
   padding: 0;
-  overflow: hidden;
+  display: none;
 }
 
 .stat-panel.expanded {
@@ -1900,7 +1902,7 @@ body.chart-visible .player-list-block {
 }
 
 .performance-card.active {
-  border: 2px solid #f1895c;
+  border: 2px solid #e5e5e5;
   background: #ffffff;
 }
 
@@ -1915,7 +1917,6 @@ body.chart-visible .player-list-block {
   text-transform: uppercase;
 }
 
-/* === Donut gauge === */
 .progress-ring {
   position: relative;
   width: 100px;
@@ -1928,7 +1929,8 @@ body.chart-visible .player-list-block {
   height: 100%;
   border-radius: 50%;
   background: conic-gradient(
-    #f1895c calc(var(--percent, 0) * 2.7deg),
+    #ff3c00 0deg,
+    #ff6f00 calc(var(--percent, 0) * 2.7deg),
     #e0e0e0 0 270deg,
     transparent 270deg 360deg
   );
@@ -1939,14 +1941,15 @@ body.chart-visible .player-list-block {
 .progress-ring::before {
   content: "";
   position: absolute;
-  top: 20px;
-  left: 20px;
-  width: 60px;
-  height: 60px;
+  top: 15px;
+  left: 15px;
+  width: 70px;
+  height: 70px;
   background: white;
   border-radius: 50%;
   z-index: 1;
 }
+
 
 .percent-text {
   position: absolute;

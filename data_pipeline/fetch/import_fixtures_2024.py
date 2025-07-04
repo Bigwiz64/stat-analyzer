@@ -47,8 +47,8 @@ SEASON_BY_LEAGUE = {
 }
 
 DEFAULT_SEASON = 2024
-FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-05-01"
-TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-07-01"
+FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-06-01"
+TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-07-03"
 MODE = sys.argv[3] if len(sys.argv) > 3 else "complet"
 
 def insert_player_stats(fixture_id, season_str):
