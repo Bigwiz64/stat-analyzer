@@ -1,0 +1,17 @@
+<!-- Colonne Domicile -->
+    <div class="filter-toggle-column">
+
+      <!-- Groupe Lieu - Domicile -->
+      <div class="filter-toggle-group filter-group-lieu-home"> filtre les matchs de l'équipe domicile 
+        <button class="filter-btn active">Tous</button> extérieure comme domicile
+        <button class="filter-btn">Domicile</button> seulement les matchs a domicile
+        <button class="filter-btn">Extérieure</button> seulement les matchs a Extérieure 
+      </div>
+
+      <!-- Groupe Type - Domicile -->
+      <div class="filter-toggle-group filter-group-type-home">
+        <button class="filter-btn active">Marqué</button> affiche les statistique des but marquer
+        <button class="filter-btn">Encaissé</button>affiche les statistique des but encaissser
+      </div>
+
+    </div>

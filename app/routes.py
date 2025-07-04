@@ -768,3 +768,16 @@ def team_season_stats(team_id):
     season = get_current_season_int()  # Exemple : 2024/2025
     stats = get_team_season_stats(team_id, season)
     return jsonify(stats)
+
+@main.route("/team/<int:team_id>/goal_ratio")
+def api_team_goal_ratio(team_id):
+    from flask import request, jsonify
+    from .data_access import get_team_goal_ratio
+
+    team_id = int(request.view_args['team_id'])
+    location = request.args.get("location")  # home / away / None
+    goal_type = request.args.get("type", "for")  # for / against
+
+    ratio = get_team_goal_ratio(team_id, goal_type, location)
+    return jsonify({"ratio": ratio})
+

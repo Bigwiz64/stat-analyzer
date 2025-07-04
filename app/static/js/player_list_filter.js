@@ -1,5 +1,5 @@
 function initPlayerListFiltering() {
-  const teamFilterButtons = document.querySelectorAll(".filter-btn");
+  const teamFilterButtons = document.querySelectorAll(".team-toggle-buttons .filter-btn"); // 🔧 Limite la portée
 
   teamFilterButtons.forEach(btn => {
     btn.addEventListener("click", () => {
@@ -15,3 +15,6 @@ function initPlayerListFiltering() {
     });
   });
 }
+document.addEventListener("DOMContentLoaded", () => {
+  initPlayerListFiltering();
+});

@@ -1983,3 +1983,118 @@ body.chart-visible .player-list-block {
   font-weight: bold;
   margin-top: 2px;
 }
+
+/* Test visuel fort */
+.filter-toggle-group .filter-btn.active {
+  background-color: #f1895c !important;
+  color: white;
+  border: 2px solid #f1895c;
+}
+
+/* === Barres de stats === */
+.stat-bar-track {
+  position: relative;
+  height: 18px;
+  border-radius: 10px;
+  background: #eee;
+  margin: 10px 0;
+  overflow: visible;
+}
+
+.stat-bar-track.reverse {
+  /* Aucune inversion ici */
+}
+
+/* Barres de remplissage */
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 10px;
+}
+
+/* === Couleurs équipe === */
+.stat-bar-fill.home {
+  background-color: #4CAF50; /* Vert */
+}
+
+.stat-bar-fill.away {
+  background-color: #F1895C; /* Orange */
+}
+
+/* === Labels au-dessus des barres === */
+.bar-label {
+  position: absolute;
+  top: -22px;
+  font-weight: bold;
+  color: #2E3244;
+  font-size: 18px;
+  white-space: nowrap;
+  transform: none; /* Protection */
+}
+
+/* Pour les barres normales (droite - away) */
+.stat-bar-track:not(.reverse) .bar-label {
+  right: 0;
+  text-align: right;
+}
+
+/* Barre inversée (gauche) */
+.stat-bar-track.reverse .bar-label {
+  right: auto;
+  left: 0;
+  text-align: left;
+}
+.bar-label {
+  position: absolute;
+  top: -22px;
+  font-weight: bold;
+  color: #2E3244;
+  font-size: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Pour les barres normales (away) */
+.stat-bar-track:not(.reverse) .bar-label {
+  right: 0;
+  left: auto;
+  text-align: right;
+}
+
+/* Pour les barres inversées (home) */
+.stat-bar-track.reverse .bar-label {
+  left: 0;
+  right: auto;
+  text-align: left;
+}
+/* Position par défaut : texte à droite pour away */
+.stat-bar-track .bar-label {
+  position: absolute;
+  top: -22px;
+  font-weight: bold;
+  color: #2E3244;
+  font-size: 16px;
+  white-space: nowrap;
+  right: 0;
+  text-align: right;
+}
+
+/* Pour les barres inversées (home = à gauche) */
+.stat-bar-track.reverse .bar-label {
+  left: 0;
+  right: auto;
+  text-align: left;
+}
+.stat-bar-track.reverse .bar-label {
+  left: 0;
+  right: auto;
+  text-align: left;
+}
+
+.stat-bar-track:not(.reverse) .bar-label {
+  right: 0;
+  left: auto;
+  text-align: right;
+}
+
+
+

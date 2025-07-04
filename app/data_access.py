@@ -905,3 +905,39 @@ def get_current_season_int():
     from datetime import datetime
     today = datetime.today()
     return today.year if today.month >= 7 else today.year - 1
+
+def get_team_goal_ratio(team_id, goal_type="for", location=None):
+    """
+    Calcule le ratio de buts marqués (goal_type='for') ou encaissés (goal_type='against') 
+    selon l'équipe et éventuellement le lieu (home, away).
+    """
+    import sqlite3
+    from .data_access import get_current_season_int
+
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    season = get_current_season_int()
+
+    cursor.execute("""
+        SELECT home_team_id, away_team_id, home_goals, away_goals
+        FROM fixtures
+        WHERE season = ? AND home_goals IS NOT NULL AND away_goals IS NOT NULL
+    """, (season,))
+    matches = cursor.fetchall()
+
+    total_goals = 0
+    total_matches = 0
+
+    for h_id, a_id, h_goals, a_goals in matches:
+        if team_id == h_id and (location in (None, "home")):
+            total_matches += 1
+            total_goals += h_goals if goal_type == "for" else a_goals
+        elif team_id == a_id and (location in (None, "away")):
+            total_matches += 1
+            total_goals += a_goals if goal_type == "for" else h_goals
+
+    conn.close()
+    ratio = round(total_goals / total_matches, 2) if total_matches > 0 else 0
+    return ratio
