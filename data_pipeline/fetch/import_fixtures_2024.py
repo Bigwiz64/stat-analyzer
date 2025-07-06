@@ -1,10 +1,69 @@
 import sys
 import os
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 import sqlite3
 import time
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
+from app.data_access import insert_empty_stat_if_missing
+
+
+
+import requests
+import sqlite3
+from data_pipeline.api_utils.path_utils import get_db_path
+
+DB_PATH = get_db_path()
+
+def get_lineup_players(fixture_id, api_key):
+    url = f"https://v3.football.api-sports.io/fixtures/lineups?fixture={fixture_id}"
+    headers = { "x-apisports-key": api_key }
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        print(f"⚠️ Erreur lineup pour fixture {fixture_id} : {response.status_code}")
+        return []
+
+    data = response.json()
+    players = []
+
+    for team in data.get("response", []):
+        team_id = team["team"]["id"]
+
+        for player in team["startXI"]:
+            players.append({
+                "id": player["player"]["id"],
+                "name": player["player"]["name"],
+                "team_id": team_id,
+                "minutes": player["player"].get("minutes", 90),
+                "type": "starter"
+            })
+
+        for sub in team.get("substitutes", []):
+            players.append({
+                "id": sub["player"]["id"],
+                "name": sub["player"]["name"],
+                "team_id": team_id,
+                "minutes": sub["player"].get("minutes", 0),
+                "type": "sub"
+            })
+
+    return players
+
+def player_has_event(fixture_events, player_id):
+    for event in fixture_events:
+        if event.get("player", {}).get("id") == player_id:
+            return True
+        if event.get("type") == "subst" and event.get("player", {}).get("id") == player_id:
+            return True
+        if event.get("type") == "subst" and event.get("assist", {}).get("id") == player_id:
+            return True
+    return False
+
+
 
 # 🔁 Import chemins et API
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -34,7 +93,7 @@ def get_season_from_date(date_str, league_id):
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    98
+    242
 ]
 
 SEASON_BY_LEAGUE = {
@@ -137,6 +196,55 @@ def insert_fixture_events(fixture_id):
     except Exception as e:
         print(f"❌ Erreur événements match {fixture_id} : {e}")
 
+def get_lineup_players(fixture_id, api_key):
+    import requests
+
+    url = f"https://v3.football.api-sports.io/fixtures/lineups?fixture={fixture_id}"
+    headers = { "x-apisports-key": api_key }
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        print(f"⚠️ Erreur lineup pour fixture {fixture_id} : {response.status_code}")
+        return []
+
+    data = response.json()
+    players = []
+
+    for team in data.get("response", []):
+        team_id = team["team"]["id"]
+
+        for player in team["startXI"]:
+            players.append({
+                "id": player["player"]["id"],
+                "name": player["player"]["name"],
+                "team_id": team_id,
+                "minutes": player["player"].get("minutes", 90),
+                "type": "starter"
+            })
+
+        for sub in team.get("substitutes", []):
+            players.append({
+                "id": sub["player"]["id"],
+                "name": sub["player"]["name"],
+                "team_id": team_id,
+                "minutes": sub["player"].get("minutes", 0),
+                "type": "sub"
+            })
+
+    return players
+
+def player_has_event(fixture_events, player_id):
+    for event in fixture_events:
+        if event.get("player", {}).get("id") == player_id:
+            return True
+        # Cas de remplacement : joueur entrant
+        if event.get("type") == "subst" and event.get("player", {}).get("id") == player_id:
+            return True
+        if event.get("type") == "subst" and event.get("assist", {}).get("id") == player_id:
+            return True
+    return False
+
+
 def insert_fixture(data, season_str, verbose=True):
     fixture = data["fixture"]
     league = data["league"]
@@ -152,6 +260,7 @@ def insert_fixture(data, season_str, verbose=True):
         insert_fixture_events(fixture["id"])
         insert_player_stats(fixture["id"], season_str)
         return
+
     cursor.execute("""
         INSERT OR REPLACE INTO fixtures (
             id, date, league_id, home_team_id, away_team_id, home_goals, away_goals, referee, season
@@ -161,15 +270,35 @@ def insert_fixture(data, season_str, verbose=True):
         teams["home"]["id"], teams["away"]["id"],
         goals["home"], goals["away"], fixture.get("referee"), season_value
     ))
+
     for side in ["home", "away"]:
         team = teams[side]
         cursor.execute("""
             INSERT OR IGNORE INTO teams (id, name, logo)
             VALUES (?, ?, ?)
         """, (team["id"], team["name"], team["logo"]))
+
     insert_player_stats(fixture["id"], season_str)
     insert_fixture_events(fixture["id"])
     repair_player_stats_from_events(fixture["id"])
+
+    # ➕ Ajout des joueurs depuis la feuille de match s'ils n'ont pas été insérés
+    api_key = os.getenv("API_SPORT_KEY")
+    fixture_id = fixture["id"]
+    fixture_events = get_api_json("fixtures/events", params={"fixture": fixture_id}).get("response", [])
+    lineup_players = get_lineup_players(fixture_id, api_key)
+
+    for player in lineup_players:
+        if not player_has_event(fixture_events, player["id"]):
+            insert_empty_stat_if_missing(
+                fixture_id,
+                player["id"],
+                player["team_id"],
+                player["minutes"]
+            )
+
+
+
 
 def fetch_fixtures(league_id):
     season_api = SEASON_BY_LEAGUE.get(league_id, DEFAULT_SEASON)

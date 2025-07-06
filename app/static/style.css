@@ -1738,14 +1738,6 @@ body.chart-visible .player-list-block {
   top: 0;
 }
 
-.stat-bar-fill.home {
-  background-color: #4CAF50; /* Vert domicile */
-}
-
-.stat-bar-fill.away {
-  background-color: #F1895C; /* Orange extérieure */
-}
-
 .stat-label-center {
   width: 180px;
   text-align: center;
@@ -1798,14 +1790,6 @@ body.chart-visible .player-list-block {
   top: 0;
 }
 
-.stat-bar-fill.home {
-  background-color: #4CAF50;
-}
-
-.stat-bar-fill.away {
-  background-color: #F1895C;
-}
-
 .stat-card {
   background-color: #ffffff;
   border-bottom-left-radius: 8px;
@@ -1831,7 +1815,7 @@ body.chart-visible .player-list-block {
   display: inline-flex;
   align-self: flex-start;
   border: 1px solid #d1d5db;
-  border-radius: 12px;
+  border-radius: 6px;
   overflow: hidden;
   background-color: white;
 }
@@ -1840,7 +1824,7 @@ body.chart-visible .player-list-block {
 .filter-toggle-group .filter-btn {
   padding: 6px 16px;
   border: none;
-  background-color: white;
+  background-color: #eceef2;
   color: #2E3244;
   font-size: 0.9rem;
   cursor: pointer;
@@ -1851,7 +1835,6 @@ body.chart-visible .player-list-block {
 
 .filter-toggle-group .filter-btn.active {
   background-color: #ECEEF2;
-  box-shadow: inset 0 0 0 1px #d1d5db;
   border-radius: 6px;
 }
 
@@ -1986,9 +1969,8 @@ body.chart-visible .player-list-block {
 
 /* Test visuel fort */
 .filter-toggle-group .filter-btn.active {
-  background-color: #f1895c !important;
+  background-color: #ff6a00 !important;
   color: white;
-  border: 2px solid #f1895c;
 }
 
 /* === Barres de stats === */
@@ -2013,11 +1995,11 @@ body.chart-visible .player-list-block {
 
 /* === Couleurs équipe === */
 .stat-bar-fill.home {
-  background-color: #4CAF50; /* Vert */
+  background-color: #0d1b2a; /* Vert */
 }
 
 .stat-bar-fill.away {
-  background-color: #F1895C; /* Orange */
+  background-color: #ff6a00; /* Orange */
 }
 
 /* === Labels au-dessus des barres === */
@@ -2076,7 +2058,7 @@ body.chart-visible .player-list-block {
 /* Par défaut : barres à droite (Extérieur) */
 .stat-bar-track {
   position: relative;
-  height: 18px;
+  height: 8px;
   border-radius: 10px;
   background: #eee;
   margin: 10px 0;

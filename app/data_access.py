@@ -996,3 +996,29 @@ def get_team_avg_goals_per_match(team_id, location="", stat_type="for", league_i
         return 0
 
     return round(total_goals / total_matches, 2)  # ✅ Moyenne réelle (ex: 2.3)
+
+def insert_empty_stat_if_missing(fixture_id, player_id, team_id, minutes=0, season="2025-2026"):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Vérifie si une stat existe déjà pour ce joueur et ce match
+    cursor.execute("""
+        SELECT COUNT(*) FROM player_stats
+        WHERE fixture_id = ? AND player_id = ?
+    """, (fixture_id, player_id))
+    count = cursor.fetchone()[0]
+
+    if count == 0:
+        cursor.execute("""
+            INSERT INTO player_stats (
+                player_id, fixture_id, team_id, minutes, goals, assists,
+                shots_total, shots_on_target, xg, xa,
+                penalty_scored, penalty_missed, yellow_cards, red_cards, season
+            ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?)
+        """, (
+            player_id, fixture_id, team_id, minutes, season
+        ))
+        print(f"✅ Stat vide insérée dans player_stats pour joueur {player_id} (fixture {fixture_id})")
+
+    conn.commit()
+    conn.close()

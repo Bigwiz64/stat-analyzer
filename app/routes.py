@@ -88,6 +88,12 @@ def index():
             .setdefault(fixture["country"], {}) \
             .setdefault(fixture["league_name"], []) \
             .append(fixture)
+    
+    # 🔍 Print pour debug : affichage des ligues et nb de matchs
+    print("📊 Matchs par pays et ligue chargés :")
+    for country, leagues in matches_by_country_league.items():
+        for league_name, matches in leagues.items():
+            print(f"  - {country} / {league_name} : {len(matches)} match(s)")
 
     # Génération des 15 jours autour de la date sélectionnée
     days = []
@@ -791,4 +797,20 @@ def team_goal_avg(team_id):
     ratio = get_team_avg_goals_per_match(team_id, location, stat_type, league_id, season)
     return jsonify({"ratio": ratio})
 
+@main.route('/debug_242')
+def debug_242():
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT f.id, f.date, f.home_team_id, f.away_team_id, f.home_goals, f.away_goals
+            FROM fixtures f
+            WHERE f.league_id = 242
+            ORDER BY f.date ASC
+        """)
+        rows = cursor.fetchall()
 
+    print(f"✅ {len(rows)} matchs trouvés")
+    for r in rows:
+        print(f"Match {r[0]} : {r[2]} vs {r[3]} | Score: {r[4]} - {r[5]}")
+
+    return f"<h1>{len(rows)} matchs trouvés pour la ligue 242 (sans JOIN)</h1>"
