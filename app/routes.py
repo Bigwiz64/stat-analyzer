@@ -14,23 +14,13 @@ from .data_access import (
     get_team_half_time_goal_avg,
     get_team_half_time_goal_ratio
 )
+from app.utils import convert_utc_to_local
 import sqlite3
 from datetime import datetime, timedelta
 from data_pipeline.api_utils.path_utils import get_db_path
 
 main = Blueprint('main', __name__)
 DB_PATH = get_db_path()
-
-def convert_utc_to_local(utc_datetime_str):
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S"):
-        try:
-            dt = datetime.strptime(utc_datetime_str, fmt)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=UTC)
-            return dt.astimezone(timezone("Europe/Paris"))
-        except ValueError:
-            continue
-    return None
 
 
 @main.route('/')

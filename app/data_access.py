@@ -3,28 +3,7 @@ import sqlite3
 import os
 from data_pipeline.api_utils.path_utils import get_db_path
 from data_pipeline.api_utils.utils_dates import get_season_from_date
-
-
-
-def get_position_abbr(position):
-    position_map = {
-        "G": "GK", "Goalkeeper": "GK",
-        "D": "DF", "Defender": "DF",
-        "M": "MF", "Midfielder": "MF",
-        "A": "FW", "Attacker": "FW",
-        "Left Back": "LB",
-        "Right Back": "RB",
-        "Center Back": "CB",
-        "Centre-Back": "CB",
-        "Defensive Midfield": "CDM",
-        "Central Midfield": "CM",
-        "Attacking Midfield": "CAM",
-        "Left Wing": "LW",
-        "Right Wing": "RW",
-        "Centre-Forward": "ST",
-        "Second Striker": "SS"
-    }
-    return position_map.get(position, position[:2].upper() if position else "?")
+from app.utils import get_position_abbr
 
 
 
