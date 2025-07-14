@@ -63,36 +63,36 @@ def index():
             JOIN teams t1 ON f.home_team_id = t1.id
             JOIN teams t2 ON f.away_team_id = t2.id
         '''
-    
+
         params = []
         conditions = []
-    
+
         # Charger les matchs entre -1 et +1 jour UTC
         start_date = (selected_date_obj - timedelta(days=1)).strftime("%Y-%m-%d")
         end_date = (selected_date_obj + timedelta(days=1)).strftime("%Y-%m-%d")
         conditions.append("DATE(f.date) BETWEEN ? AND ?")
         params.extend([start_date, end_date])
-    
+
         if status_filter == "played":
             conditions.append("f.home_goals IS NOT NULL AND f.away_goals IS NOT NULL")
         elif status_filter == "upcoming":
             conditions.append("f.home_goals IS NULL AND f.away_goals IS NULL")
-    
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-    
+
         query += " ORDER BY f.date ASC"
         cursor.execute(query, params)
         rows = cursor.fetchall()
-    
+
     matches_by_country_league = {}
     for row in rows:
         local_dt = convert_utc_to_local(row[1])
-        
+
         # ✅ Filtrage par jour local Europe/Paris
         if local_dt.date() != selected_date_obj.date():
             continue
-        
+
         fixture = {
             "id": row[0],
             "date": local_dt,  # datetime local complet (heure incluse)
@@ -106,7 +106,7 @@ def index():
             "home_goals": row[9],
             "away_goals": row[10]
         }
-    
+
         matches_by_country_league \
             .setdefault(fixture["country"], {}) \
             .setdefault(fixture["league_name"], []) \
@@ -161,13 +161,15 @@ from .api_sport import get_team_squad  # en haut du fichier
 
 @main.route('/match/<int:fixture_id>/preview')
 def match_preview(fixture_id):
+    import sqlite3
     from datetime import datetime, timezone
+    from pytz import timezone as pytz_timezone, UTC
     from app.data_access import (
         get_match_with_player_stats,
         get_match_with_cumulative_player_stats
     )
 
-    # Récupération des infos du match
+    # Connexion DB + récupération des données du match
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -183,24 +185,27 @@ def match_preview(fixture_id):
         return render_template("match_preview.html", match=None)
 
     match_date_str, match_round, home_logo, away_logo = result
+
+    # 📅 Conversion date UTC → locale Europe/Paris
     match_date = None
+    paris_tz = pytz_timezone("Europe/Paris")
 
     for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
             match_date = datetime.strptime(match_date_str, fmt)
 
-            # Si le fuseau n'est pas précisé dans la chaîne (ex : pas de %z), on l'ajoute en UTC
+            # Si pas de fuseau dans le datetime => assignation UTC
             if match_date.tzinfo is None:
                 match_date = match_date.replace(tzinfo=UTC)
 
-            # ✅ Conversion vers le fuseau horaire France
-            match_date = match_date.astimezone(timezone("Europe/Paris"))
+            # Conversion UTC → Europe/Paris
+            match_date = match_date.astimezone(paris_tz)
             break
         except (ValueError, TypeError):
             continue
 
-    now = datetime.now(timezone.utc)
-
+    # ⏳ Choix de la méthode stats selon date
+    now = datetime.now(UTC)
     if match_date and match_date > now:
         print("⏳ Match à venir - cumul des stats")
         match = get_match_with_cumulative_player_stats(fixture_id)
@@ -211,12 +216,18 @@ def match_preview(fixture_id):
     if not match:
         return render_template("match_preview.html", match=None)
 
-    # ✅ Ajout ici du round dans le dictionnaire match
+    # ➕ Ajout des infos supplémentaires
     match["round"] = match_round
     match["date_fr"] = match_date.strftime("%d/%m/%Y")
     match["time"] = match_date.strftime("%H:%M")
 
-    return render_template("match_preview.html", match=match, home_logo=home_logo, away_logo=away_logo, season=match["season"] if "season" in match else 2025)
+    return render_template(
+        "match_preview.html",
+        match=match,
+        home_logo=home_logo,
+        away_logo=away_logo,
+        season=match.get("season", 2025)
+    )
 
 
 
