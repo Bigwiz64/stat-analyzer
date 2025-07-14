@@ -89,7 +89,7 @@
                                                     {% if match.home_goals is not none and match.away_goals is not none %}
                                                         <span class="score">{{ match.home_goals }} - {{ match.away_goals }}</span>
                                                     {% else %}
-                                                        <span class="score match-time">🕒 {{ match.date[11:16] }}</span>
+                                                        <span class="score match-time">🕒 {{ match.date.strftime("%H:%M") }}</span>
                                                     {% endif %}
                                                 </div>
                                                 <div class="team-block right-team">

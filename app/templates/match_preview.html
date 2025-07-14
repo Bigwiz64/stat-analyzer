@@ -16,15 +16,20 @@
     <div class="goal-series" id="home-goal-series"></div>
   </div>
   <div class="score-block">
-    <div class="match-date">{{ match.date[:10] }} {{ match.time or '' }}</div>
-    {% if match.home_goals is not none and match.away_goals is not none %}
-      <div class="score">{{ match.home_goals }} - {{ match.away_goals }}</div>
-      <div class="match-status">TERMINÉ</div>
-    {% else %}
-      <div class="score">–</div>
-      <div class="match-status">À venir</div>
-    {% endif %}
-  </div>
+  <div class="match-date">{{ match.date_fr }} {{ match.time or '' }}</div>
+  {% if match.round %}
+    <div class="match-round">
+      {{ match.round | replace('Regular Season - ', 'Journée ') }}
+    </div>
+  {% endif %}
+  {% if match.home_goals is not none and match.away_goals is not none %}
+    <div class="score">{{ match.home_goals }} - {{ match.away_goals }}</div>
+    <div class="match-status">TERMINÉ</div>
+  {% else %}
+    <div class="score">–</div>
+    <div class="match-status">À venir</div>
+  {% endif %}
+</div>
   <div class="team team-vertical">
     <img alt="{{ match.away_team }}" class="team-logo-large" src="{{ away_logo }}"/>
     <div class="team-name big">{{ match.away_team }}</div>
@@ -216,6 +221,74 @@
 </div>
 </div>
 
+<div class="stat-section-header">Comparatif Statistique Saison</div>
+
+<!-- Bloc : Over 1.5 -->
+<div class="stat-block-dual">
+  <div class="stat-title">Over 1.5 buts</div>
+  <div class="stat-line-dual">
+    <div class="stat-bar-track reverse">
+      <div class="stat-bar-fill home marquer" id="home_over_1_5"></div>
+    </div>
+    <div class="stat-bar-track">
+      <div class="stat-bar-fill away marquer" id="away_over_1_5"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloc : Over 2.5 -->
+<div class="stat-block-dual">
+  <div class="stat-title">Over 2.5 buts</div>
+  <div class="stat-line-dual">
+    <div class="stat-bar-track reverse">
+      <div class="stat-bar-fill home marquer" id="home_over_2_5"></div>
+    </div>
+    <div class="stat-bar-track">
+      <div class="stat-bar-fill away marquer" id="away_over_2_5"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloc : Over 3.5 -->
+<div class="stat-block-dual">
+  <div class="stat-title">Over 3.5 buts</div>
+  <div class="stat-line-dual">
+    <div class="stat-bar-track reverse">
+      <div class="stat-bar-fill home marquer" id="home_over_3_5"></div>
+    </div>
+    <div class="stat-bar-track">
+      <div class="stat-bar-fill away marquer" id="away_over_3_5"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloc : BTTS -->
+<div class="stat-block-dual">
+  <div class="stat-title">BTTS (les 2 équipes marquent)</div>
+  <div class="stat-line-dual">
+    <div class="stat-bar-track reverse">
+      <div class="stat-bar-fill home marquer" id="home_btts"></div>
+    </div>
+    <div class="stat-bar-track">
+      <div class="stat-bar-fill away marquer" id="away_btts"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloc : Clean Sheet -->
+<div class="stat-block-dual">
+  <div class="stat-title">Clean Sheet (aucun but encaissé)</div>
+  <div class="stat-line-dual">
+    <div class="stat-bar-track reverse">
+      <div class="stat-bar-fill home encaisser" id="home_clean_sheet"></div>
+    </div>
+    <div class="stat-bar-track">
+      <div class="stat-bar-fill away encaisser" id="away_clean_sheet"></div>
+    </div>
+  </div>
+</div>
+
+
 
 
 
@@ -224,7 +297,9 @@
   window.MATCH_ID = {{ match.id | tojson }};
   window.HOME_TEAM_ID = {{ match.home_team_id | tojson }};
   window.AWAY_TEAM_ID = {{ match.away_team_id | tojson }};
+  window.CURRENT_SEASON = {{ season | tojson }};
 </script>
+
 
 <script src="{{ url_for('static', filename='js/initPlayerPanel.js') }}"></script>
 <script src="{{ url_for('static', filename='js/goal_series_loader.js') }}"></script>

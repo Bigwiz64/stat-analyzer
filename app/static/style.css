@@ -618,7 +618,7 @@ h1, h2, h3 {
   background: white;
     padding: 10px;
     border-radius: 6px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .stat-button-group {
@@ -646,7 +646,7 @@ h1, h2, h3 {
     padding: 6px 12px;
     border-radius: 4px;
     border: none;
-    background-color: #ddd;
+    background-color: #eceef2;
     cursor: pointer;;
 }
 
@@ -1540,12 +1540,13 @@ body.chart-visible .player-list-block {
 
 /* Table scrollable */
 .scrollable-player-list {
-  max-height: 630px;      /* Ajuste ici la hauteur visible (exemple : 450px = environ 10 lignes) */
+  max-height: 595px;      /* Ajuste ici la hauteur visible (exemple : 450px = environ 10 lignes) */
   overflow-y: auto;        /* Scroll vertical uniquement à l'intérieur de la liste des joueurs */
   border: 1px solid #ddd;  /* Optionnel : petite bordure de séparation */
   border-radius: 6px;      /* Coins arrondis pour un look plus propre */
   background-color: #fff;  /* Fond blanc pour garder lisibilité */
   margin-bottom: 20px;     /* Important : laisser un espace pour ne pas coller avec la section en-dessous */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 
@@ -1794,7 +1795,7 @@ body.chart-visible .player-list-block {
   background-color: #ffffff;
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   padding: 20px;
   border: 1px solid #e0e0e0;
 }
@@ -1828,7 +1829,7 @@ body.chart-visible .player-list-block {
   color: #2E3244;
   font-size: 0.9rem;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
   transition: all 0.2s ease;
   border-radius: 0;
 }
@@ -1983,9 +1984,7 @@ body.chart-visible .player-list-block {
   overflow: visible;
 }
 
-.stat-bar-track.reverse {
-  /* Aucune inversion ici */
-}
+
 
 /* Barres de remplissage */
 .stat-bar-fill {
@@ -2113,8 +2112,20 @@ body.chart-visible .player-list-block {
   text-align: right;
 }
 
+.stat-bar-fill.marquer {
+  background-color: #4CAF50; /* Vert */
+}
 
+.stat-bar-fill.encaisser {
+  background-color: #F44336; /* Rouge */
+}
 
+.match-round {
+  font-size: 0.85rem;
+  color: #ccc;
+  margin-top: 2px;
+  text-align: center;
+}
 
 
 

@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 from data_pipeline.api_utils.path_utils import get_db_path
 
 DB_PATH = get_db_path()
-LEAGUE_ID = 242
+LEAGUE_ID = 262
 
 with sqlite3.connect(DB_PATH) as conn:
     cursor = conn.cursor()

@@ -70,7 +70,6 @@ def get_season_for_fixture(date_str, league_id):
     return year if month >= 7 else year - 1
 
 
-
 def get_match_with_cumulative_player_stats(fixture_id):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
@@ -112,6 +111,7 @@ def get_match_with_cumulative_player_stats(fixture_id):
 
         print("📦 Stats cumulées pour match :", fixture_id)
         print(f"🗓️  Date : {match_date} | Saison : {season}")
+        print(f"⏱️ Date utilisée pour filtre SQL : {match_date} ({type(match_date)})")
         print(f"🏠 Home ID : {home_team_id} | 🛫 Away ID : {away_team_id}")
 
         # 2. Liste des matchs utilisés pour le cumul
@@ -120,7 +120,7 @@ def get_match_with_cumulative_player_stats(fixture_id):
             FROM fixtures f
             JOIN teams home ON f.home_team_id = home.id
             JOIN teams away ON f.away_team_id = away.id
-            WHERE f.date < ?
+            WHERE datetime(f.date) < datetime(?)
               AND f.league_id = ?
               AND f.season = ?
               AND (f.home_team_id = ? OR f.away_team_id = ?)
@@ -148,7 +148,7 @@ def get_match_with_cumulative_player_stats(fixture_id):
             FROM player_stats ps
             JOIN players p ON ps.player_id = p.id
             JOIN fixtures f ON ps.fixture_id = f.id
-            WHERE f.date < ?
+            WHERE datetime(f.date) < datetime(?)
               AND (ps.team_id = ? OR ps.team_id = ?)
             GROUP BY ps.player_id
         """, (match_date, home_team_id, away_team_id))
@@ -188,12 +188,6 @@ def get_match_with_cumulative_player_stats(fixture_id):
         print(f"✅ Joueurs domicile : {len(match_data['home_players'])}")
         print(f"✅ Joueurs extérieur : {len(match_data['away_players'])}")
         return match_data
-
-
-
-
-
-
 
 
 def get_team_id_by_name(conn, team_name):
@@ -563,6 +557,11 @@ def get_match_with_player_stats(fixture_id):
         stats = cursor.fetchall()
         print(f"👥 Joueurs avec stats récupérés : {len(stats)}")
 
+        # ⚠️ Si aucun joueur n’a de stat, retourne quand même le match (utile pour les absents)
+        if not stats:
+            print("⚠️ Aucun joueur avec stats — retour données de base")
+            return match_data
+
         # 4. Construction de la liste des joueurs
         for row in stats:
             player_id = row[0]
@@ -606,6 +605,7 @@ def get_match_with_player_stats(fixture_id):
         print(f"✅ Joueurs extérieur : {len(match_data['away_players'])}")
 
         return match_data
+
 
 
     
@@ -942,14 +942,12 @@ def get_team_goal_ratio(team_id, location="", stat_type="for", league_id=None, s
         {where_clause}
     """
 
-    print("📊 DEBUG — SQL Query:\n", query)
-    print("🧮 Params:", params)
 
     cursor.execute(query, params)
     total_matches, matches_with_goals = cursor.fetchone()
     conn.close()
 
-    print(f"🎯 Calcul: {matches_with_goals} match(s) avec but sur {total_matches} joué(s) → {round((matches_with_goals / total_matches) * 100, 1) if total_matches else 0}%")
+    
 
     if not total_matches:
         return 0
@@ -985,8 +983,6 @@ def get_team_avg_goals_per_match(team_id, location="", stat_type="for", league_i
         WHERE {condition}
         AND f.home_goals IS NOT NULL AND f.away_goals IS NOT NULL
     """
-    print("📊 SQL AVG Ratio:\n", query)
-    print("🧮 Params:", params)
 
     cursor.execute(query, params)
     total_matches, total_goals = cursor.fetchone()
@@ -1022,3 +1018,252 @@ def insert_empty_stat_if_missing(fixture_id, player_id, team_id, minutes=0, seas
 
     conn.commit()
     conn.close()
+
+def insert_player_presence(fixture_id, player_id, team_id, status):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO player_match_presence (
+            fixture_id, player_id, team_id, status
+        ) VALUES (?, ?, ?, ?)
+    """, (fixture_id, player_id, team_id, status))
+
+    conn.commit()
+    conn.close()
+
+def get_team_half_time_goal_ratio(team_id, location="", type_="for", season=None):
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    print(f"📥 Saison reçue : {season}")
+
+    # 1. On récupère tous les matchs joués avec score MT valide
+    query = """
+        SELECT id, home_team_id, away_team_id, home_goals_ht, away_goals_ht, home_goals, away_goals
+        FROM fixtures
+        WHERE season = ?
+          AND home_goals IS NOT NULL AND away_goals IS NOT NULL
+          AND home_goals_ht IS NOT NULL AND away_goals_ht IS NOT NULL
+    """
+    params = [season]
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+
+    match_count = 0
+    one_plus = 0
+
+    print(f"📊 DEBUG - Ratio buts MT ({type_}) | équipe {team_id} | location={location} | saison={season}")
+    print("-" * 80)
+
+    for row in rows:
+        fixture_id, home_id, away_id, home_ht, away_ht, home_ft, away_ft = row
+
+        # Skip match if not involving the team
+        if team_id not in (home_id, away_id):
+            continue
+
+        if location == "home" and home_id != team_id:
+            continue
+        elif location == "away" and away_id != team_id:
+            continue
+
+        if type_ == "for":
+            if team_id == home_id:
+                goals = home_ht
+                side = "HOME"
+            else:
+                goals = away_ht
+                side = "AWAY"
+        elif type_ == "against":
+            if team_id == home_id:
+                goals = away_ht
+                side = "HOME (contre)"
+            else:
+                goals = home_ht
+                side = "AWAY (contre)"
+        else:
+            continue  # Si le type est inconnu, on saute
+
+        if goals is not None:
+            match_count += 1
+            if goals > 0:
+                one_plus += 1
+            print(f"✔️ Match {fixture_id} → {goals} but(s) {side}")
+
+    conn.close()
+
+    if match_count == 0:
+        print(f"⚠️ Aucun match trouvé pour équipe {team_id}")
+        return 0
+
+    ratio = round((one_plus / match_count) * 100, 1)
+    print("-" * 80)
+    print(f"📊 Matchs avec 1+ but en MT : {one_plus} / {match_count}")
+    print(f"📈 Pourcentage : {ratio}%")
+
+    return ratio
+
+def get_team_half_time_goal_avg(team_id, location="", type_="for", season=None):
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    print(f"\n📊 DEBUG - Moyenne de buts à la mi-temps | équipe {team_id} | location={location} | type={type_} | saison={season}")
+    print("-" * 90)
+
+    query = """
+        SELECT id, home_team_id, away_team_id, home_goals_ht, away_goals_ht, home_goals, away_goals
+        FROM fixtures
+        WHERE season = ?
+          AND home_goals_ht IS NOT NULL AND away_goals_ht IS NOT NULL
+    """
+    cursor.execute(query, (season,))
+    rows = cursor.fetchall()
+
+    total_goals = 0
+    match_count = 0
+    one_plus_count = 0
+
+    for row in rows:
+        fixture_id, home_id, away_id, home_ht, away_ht, home_ft, away_ft = row
+
+        # Match non concerné
+        if team_id not in (home_id, away_id):
+            continue
+
+        # DOMICILE
+        if home_id == team_id and location in ("", "home"):
+            goals = home_ht if type_ == "for" else away_ht
+            label = "HOME" if type_ == "for" else "HOME (contre)"
+            if goals is not None:
+                total_goals += goals
+                match_count += 1
+                if goals > 0:
+                    one_plus_count += 1
+                print(f"✔️ Match {fixture_id} → {goals} but(s) {label}")
+
+        # EXTÉRIEUR
+        if away_id == team_id and location in ("", "away"):
+            goals = away_ht if type_ == "for" else home_ht
+            label = "AWAY" if type_ == "for" else "AWAY (contre)"
+            if goals is not None:
+                total_goals += goals
+                match_count += 1
+                if goals > 0:
+                    one_plus_count += 1
+                print(f"✔️ Match {fixture_id} → {goals} but(s) {label}")
+
+    conn.close()
+
+    if match_count == 0:
+        print(f"⚠️ Aucun match trouvé pour équipe {team_id}")
+        return 0
+
+    avg = total_goals / match_count
+    percentage = (one_plus_count / match_count) * 100
+
+    print("-" * 90)
+    print(f"📥 Total buts : {total_goals}")
+    print(f"📊 Matchs comptabilisés : {match_count}")
+    print(f"✅ Matchs avec 1+ but en MT : {one_plus_count} / {match_count}")
+    print(f"📈 Moyenne MT : {round(avg, 2)} | Pourcentage 1+ : {round(percentage, 1)}%\n")
+
+    return round(avg, 2)
+
+
+
+def get_team_stat_ratio(team_id, stat_type, location="", season=None):
+    print(f"📥 Stat demandé : {stat_type} | équipe : {team_id} | location : {location} | saison : {season}")
+    season = int(season)  # ✅ Ajout essentiel
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    if location == "home":
+        team_cond = "home_team_id = ?"
+        base_params = [season, team_id]
+        where_clause = f"season = ? AND {team_cond}"
+    elif location == "away":
+        team_cond = "away_team_id = ?"
+        base_params = [season, team_id]
+        where_clause = f"season = ? AND {team_cond}"
+    else:
+        team_cond = "(home_team_id = ? OR away_team_id = ?)"
+        base_params = [season, team_id, team_id]
+        where_clause = f"season = ? AND {team_cond}"
+
+    if stat_type in ["over_1_5", "over_2_5", "over_3_5"]:
+        goal_threshold = {"over_1_5": 2, "over_2_5": 3, "over_3_5": 4}[stat_type]
+        condition = f"(home_goals + away_goals >= {goal_threshold})"
+        params = base_params
+
+    elif stat_type == "btts":
+        condition = f"(home_goals > 0 AND away_goals > 0)"
+        params = base_params
+
+    elif stat_type == "clean_sheet":
+        condition = f"""(
+            (home_team_id = ? AND away_goals = 0) OR
+            (away_team_id = ? AND home_goals = 0)
+        )"""
+        params = base_params + [team_id, team_id]
+
+    else:
+        print(f"❌ Stat type inconnu : {stat_type}")
+        return 0.0
+
+    query_total = f"SELECT COUNT(*) FROM fixtures WHERE {where_clause} AND home_goals IS NOT NULL AND away_goals IS NOT NULL"
+    query_stat = f"SELECT COUNT(*) FROM fixtures WHERE {where_clause} AND home_goals IS NOT NULL AND away_goals IS NOT NULL AND {condition}"
+
+    print(f"🔎 Requête totale : {query_total}")
+    print(f"🔎 Paramètres total : {base_params}")
+    print(f"📊 Requête stat : {query_stat}")
+    print(f"📊 Paramètres stat : {params}")
+
+    cursor.execute(query_total, base_params)
+    total = cursor.fetchone()[0] or 1
+    print(f"📌 Total de matchs trouvés : {total}")
+
+    cursor.execute(query_stat, params)
+    count = cursor.fetchone()[0] or 0
+    print(f"✅ Matchs correspondant à {stat_type} : {count}")
+
+    ratio = round(100 * count / total, 1)
+    conn.close()
+    return ratio
+
+def get_match_by_id(fixture_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT f.id, f.date, f.league_id, f.home_team_id, f.away_team_id,
+               f.home_goals, f.away_goals, f.round,
+               ht.name as home_team, at.name as away_team,
+               ht.logo as home_logo, at.logo as away_logo
+        FROM fixtures f
+        JOIN teams ht ON f.home_team_id = ht.id
+        JOIN teams at ON f.away_team_id = at.id
+        WHERE f.id = ?
+    """, (fixture_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "date": row[1],
+        "league_id": row[2],
+        "home_team_id": row[3],
+        "away_team_id": row[4],
+        "home_goals": row[5],
+        "away_goals": row[6],
+        "round": row[7],
+        "home_team": row[8],
+        "away_team": row[9],
+        "home_logo": row[10],
+        "away_logo": row[11]
+    }

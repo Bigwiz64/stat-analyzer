@@ -8,7 +8,7 @@ import time
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
-from app.data_access import insert_empty_stat_if_missing
+from app.data_access import insert_empty_stat_if_missing, insert_player_presence
 
 
 
@@ -66,6 +66,57 @@ def player_has_event(fixture_events, player_id):
 
 
 # 🔁 Import chemins et API
+def update_fixture_ht_score_from_events(fixture_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT team_id, type, elapsed, extra
+        FROM fixture_events
+        WHERE fixture_id = ? AND type = 'Goal'
+    """, (fixture_id,))
+    rows = cursor.fetchall()
+
+    if not rows:
+        print(f"⚠️ Aucun event de but trouvé pour fixture {fixture_id}")
+        return
+
+    ht_home_goals = 0
+    ht_away_goals = 0
+
+    # Récupère les équipes du match
+    cursor.execute("SELECT home_team_id, away_team_id FROM fixtures WHERE id = ?", (fixture_id,))
+    result = cursor.fetchone()
+    if not result:
+        print(f"❌ Fixture {fixture_id} introuvable.")
+        return
+
+    home_team_id, away_team_id = result
+
+    for team_id, type_, elapsed, extra in rows:
+        minute = elapsed if elapsed is not None else 0
+        extra = extra if extra is not None else 0
+        total_minute = minute + extra
+
+        if total_minute <= 45 or (minute == 45 and extra <= 10):  # But en 1ère mi-temps
+            if team_id == home_team_id:
+                ht_home_goals += 1
+            elif team_id == away_team_id:
+                ht_away_goals += 1
+
+    # Mise à jour si nécessaire
+    cursor.execute("""
+        UPDATE fixtures
+        SET home_goals_ht = ?, away_goals_ht = ?
+        WHERE id = ?
+    """, (ht_home_goals, ht_away_goals, fixture_id))
+    conn.commit()
+    conn.close()
+
+    print(f"✅ Score MT mis à jour via events pour fixture {fixture_id} : {ht_home_goals}-{ht_away_goals}")
+
+
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from data_pipeline.api_utils.utils_api import get_api_json
 from data_pipeline.api_utils.path_utils import get_db_path
@@ -88,12 +139,12 @@ def get_season_from_date(date_str, league_id):
     date_obj = datetime.strptime(date_str[:10], "%Y-%m-%d")
     year = date_obj.year
     month = date_obj.month
-    if league_id in [103, 113, 244, 119]:  # Norvège, Suède, Finlande, Danemark
+    if league_id in [103, 113, 244, 119, 292]:  # Norvège, Suède, Finlande, Danemark
         return year
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    242
+    253, 103, 113, 244, 71
 ]
 
 SEASON_BY_LEAGUE = {
@@ -101,13 +152,13 @@ SEASON_BY_LEAGUE = {
     144: 2024, 95: 2024, 244: 2025, 119: 2024, 186: 2024, 188: 2025, 81: 2024,
     307: 2024, 128: 2025, 71: 2025, 265: 2025, 169: 2025, 318: 2024, 239: 2025,
     292: 2025, 210: 2024, 242: 2025, 329: 2025, 253: 2025, 197: 2024, 357: 2025,
-    164: 2025, 98: 2025, 365: 2025, 262: 2024, 250: 2025, 106: 2024, 283: 2024,
+    164: 2025, 98: 2025, 365: 2025, 262: 2025, 250: 2025, 106: 2024, 283: 2024,
     207: 2024, 203: 2024, 333: 2024, 239: 2025
 }
 
 DEFAULT_SEASON = 2024
-FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-02-01"
-TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-07-08"
+FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-02-15"
+TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-08-01"
 MODE = sys.argv[3] if len(sys.argv) > 3 else "complet"
 
 def insert_player_stats(fixture_id, season_str):
@@ -169,6 +220,8 @@ def insert_player_stats(fixture_id, season_str):
         print("⛑️ Tentative de secours via les événements du match...")
         conn.commit()
         fallback_player_stats_from_events(fixture_id)
+        update_fixture_ht_score_from_events(fixture_id)
+        print("➡️ update_fixture_ht_score_from_events() appelée")
 
 def insert_fixture_events(fixture_id):
     print(f"🔁 Réinsertion forcée des événements du match {fixture_id}")
@@ -193,8 +246,31 @@ def insert_fixture_events(fixture_id):
             ))
         conn.commit()
         print("✅ Événements insérés avec succès.")
+        update_fixture_ht_score_from_events(fixture_id)
+        print(f"➡️ update_fixture_ht_score_from_events() appelée depuis insert_fixture_events")
+
     except Exception as e:
         print(f"❌ Erreur événements match {fixture_id} : {e}")
+
+def get_injuries_by_fixture(fixture_id):
+    import os
+    import requests
+
+    url = f"https://v3.football.api-sports.io/injuries?fixture={fixture_id}"
+    headers = {
+        "x-apisports-key": os.getenv("API_SPORT_KEY")
+    }
+    print("Clé API utilisée :", os.getenv("API_SPORT_KEY"))
+
+
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        print(f"❌ Erreur récupération blessures fixture {fixture_id}")
+        return []
+
+    data = response.json()
+    return data.get("response", [])
+
 
 def get_lineup_players(fixture_id, api_key):
     import requests
@@ -231,7 +307,26 @@ def get_lineup_players(fixture_id, api_key):
                 "type": "sub"
             })
 
+    # --- Ajout traitement des absents ---
+    injuries = get_injuries_by_fixture(fixture_id)
+
+    for injury in injuries:
+        player_id = injury["player"]["id"]
+        team_id = injury["team"]["id"]
+        status_type = injury.get("type", "").lower()
+
+        if status_type == "injury":
+            status = "injured"
+        elif status_type == "suspension":
+            status = "suspended"
+        else:
+            status = "absent"
+
+        insert_player_presence(fixture_id, player_id, team_id, status)
+        print(f"🚑 Absence détectée : joueur {player_id}, status = {status}")
+
     return players
+
 
 def player_has_event(fixture_events, player_id):
     for event in fixture_events:
@@ -250,10 +345,15 @@ def insert_fixture(data, season_str, verbose=True):
     league = data["league"]
     teams = data["teams"]
     goals = data["goals"]
+    halftime = data.get("score", {}).get("halftime", {})
+
     season_value = get_season_from_date(fixture["date"], league["id"])
+    round_info = league.get("round")  # ✅ Nouvelle ligne : récupération du round
+
     cursor.execute("SELECT home_goals, away_goals FROM fixtures WHERE id = ?", (fixture["id"],))
     result = cursor.fetchone()
     already_has_score = result and result[0] is not None and result[1] is not None
+
     if already_has_score and MODE == "rapide":
         if verbose:
             print(f"⏭️ Match {fixture['id']} déjà à jour.")
@@ -261,14 +361,22 @@ def insert_fixture(data, season_str, verbose=True):
         insert_player_stats(fixture["id"], season_str)
         return
 
+    home_ht = halftime.get("home", None)
+    away_ht = halftime.get("away", None)
+    if verbose:
+        print(f"🏟️ Match {fixture['id']} : HT {home_ht} - {away_ht}")
+
     cursor.execute("""
         INSERT OR REPLACE INTO fixtures (
-            id, date, league_id, home_team_id, away_team_id, home_goals, away_goals, referee, season
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id, date, league_id, home_team_id, away_team_id,
+            home_goals, away_goals, referee, season,
+            home_goals_ht, away_goals_ht, round  -- ✅ Ajout du champ round
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)  -- ✅ Un ? de plus
     """, (
         fixture["id"], fixture["date"], league["id"],
         teams["home"]["id"], teams["away"]["id"],
-        goals["home"], goals["away"], fixture.get("referee"), season_value
+        goals["home"], goals["away"], fixture.get("referee"), season_value,
+        home_ht, away_ht, round_info  # ✅ Ajout ici
     ))
 
     for side in ["home", "away"]:
@@ -282,7 +390,10 @@ def insert_fixture(data, season_str, verbose=True):
     insert_fixture_events(fixture["id"])
     repair_player_stats_from_events(fixture["id"])
 
-    # ➕ Ajout des joueurs depuis la feuille de match s'ils n'ont pas été insérés
+    if home_ht is None or away_ht is None:
+        print(f"🔧 Score MT manquant pour match {fixture['id']} — tentative de réparation via events")
+        update_fixture_ht_score_from_events(fixture["id"])
+
     api_key = os.getenv("API_SPORT_KEY")
     fixture_id = fixture["id"]
     fixture_events = get_api_json("fixtures/events", params={"fixture": fixture_id}).get("response", [])
@@ -296,8 +407,6 @@ def insert_fixture(data, season_str, verbose=True):
                 player["team_id"],
                 player["minutes"]
             )
-
-
 
 
 def fetch_fixtures(league_id):
@@ -426,5 +535,4 @@ if __name__ == "__main__":
     target_season = sys.argv[4] if len(sys.argv) > 4 else "2025-2026"
     print(f"📅 Saison utilisée pour mise à jour des joueurs : {target_season}")
     update_unknown_players()
-
 

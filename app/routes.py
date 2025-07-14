@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from pytz import timezone, UTC
 from .data_access import (
     get_match_with_player_stats,
     get_player_match_stats,
@@ -9,7 +10,9 @@ from .data_access import (
     get_team_season_stats,
     get_current_season_int,
     get_team_goal_ratio,
-    get_team_avg_goals_per_match
+    get_team_avg_goals_per_match,
+    get_team_half_time_goal_avg,
+    get_team_half_time_goal_ratio
 )
 import sqlite3
 from datetime import datetime, timedelta
@@ -19,9 +22,15 @@ main = Blueprint('main', __name__)
 DB_PATH = get_db_path()
 
 def convert_utc_to_local(utc_datetime_str):
-    utc_dt = datetime.strptime(utc_datetime_str, "%Y-%m-%dT%H:%M:%S%z")
-    local_dt = utc_dt + timedelta(hours=2)
-    return local_dt.strftime("%Y-%m-%dT%H:%M:%S")
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            dt = datetime.strptime(utc_datetime_str, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            return dt.astimezone(timezone("Europe/Paris"))
+        except ValueError:
+            continue
+    return None
 
 
 @main.route('/')
@@ -42,6 +51,8 @@ def index():
 
     selected_day_abbr = french_abbr.get(selected_date_obj.strftime('%a'), selected_date_obj.strftime('%a')).upper()
 
+    from pytz import timezone
+
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         query = '''
@@ -52,28 +63,39 @@ def index():
             JOIN teams t1 ON f.home_team_id = t1.id
             JOIN teams t2 ON f.away_team_id = t2.id
         '''
-        params, conditions = [], []
-
-        if selected_date:
-            conditions.append("DATE(f.date) = ?")
-            params.append(selected_date)
+    
+        params = []
+        conditions = []
+    
+        # Charger les matchs entre -1 et +1 jour UTC
+        start_date = (selected_date_obj - timedelta(days=1)).strftime("%Y-%m-%d")
+        end_date = (selected_date_obj + timedelta(days=1)).strftime("%Y-%m-%d")
+        conditions.append("DATE(f.date) BETWEEN ? AND ?")
+        params.extend([start_date, end_date])
+    
         if status_filter == "played":
             conditions.append("f.home_goals IS NOT NULL AND f.away_goals IS NOT NULL")
         elif status_filter == "upcoming":
             conditions.append("f.home_goals IS NULL AND f.away_goals IS NULL")
-
+    
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-
+    
         query += " ORDER BY f.date ASC"
         cursor.execute(query, params)
         rows = cursor.fetchall()
-
+    
     matches_by_country_league = {}
     for row in rows:
+        local_dt = convert_utc_to_local(row[1])
+        
+        # ✅ Filtrage par jour local Europe/Paris
+        if local_dt.date() != selected_date_obj.date():
+            continue
+        
         fixture = {
             "id": row[0],
-            "date": convert_utc_to_local(row[1]),
+            "date": local_dt,  # datetime local complet (heure incluse)
             "league_id": row[2],
             "league_name": row[3],
             "country": row[4],
@@ -84,10 +106,12 @@ def index():
             "home_goals": row[9],
             "away_goals": row[10]
         }
+    
         matches_by_country_league \
             .setdefault(fixture["country"], {}) \
             .setdefault(fixture["league_name"], []) \
             .append(fixture)
+
     
     # 🔍 Print pour debug : affichage des ligues et nb de matchs
     print("📊 Matchs par pays et ligue chargés :")
@@ -147,7 +171,7 @@ def match_preview(fixture_id):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT f.date, t1.logo, t2.logo
+            SELECT f.date, f.round, t1.logo, t2.logo
             FROM fixtures f
             JOIN teams t1 ON f.home_team_id = t1.id
             JOIN teams t2 ON f.away_team_id = t2.id
@@ -158,19 +182,25 @@ def match_preview(fixture_id):
     if not result:
         return render_template("match_preview.html", match=None)
 
-    match_date_str, home_logo, away_logo = result
+    match_date_str, match_round, home_logo, away_logo = result
     match_date = None
 
     for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
             match_date = datetime.strptime(match_date_str, fmt)
+
+            # Si le fuseau n'est pas précisé dans la chaîne (ex : pas de %z), on l'ajoute en UTC
+            if match_date.tzinfo is None:
+                match_date = match_date.replace(tzinfo=UTC)
+
+            # ✅ Conversion vers le fuseau horaire France
+            match_date = match_date.astimezone(timezone("Europe/Paris"))
             break
         except (ValueError, TypeError):
             continue
 
     now = datetime.now(timezone.utc)
 
-    # 🔁 Choix de la fonction selon que le match est joué ou non
     if match_date and match_date > now:
         print("⏳ Match à venir - cumul des stats")
         match = get_match_with_cumulative_player_stats(fixture_id)
@@ -181,7 +211,12 @@ def match_preview(fixture_id):
     if not match:
         return render_template("match_preview.html", match=None)
 
-    return render_template("match_preview.html", match=match, home_logo=home_logo, away_logo=away_logo)
+    # ✅ Ajout ici du round dans le dictionnaire match
+    match["round"] = match_round
+    match["date_fr"] = match_date.strftime("%d/%m/%Y")
+    match["time"] = match_date.strftime("%H:%M")
+
+    return render_template("match_preview.html", match=match, home_logo=home_logo, away_logo=away_logo, season=match["season"] if "season" in match else 2025)
 
 
 
@@ -546,8 +581,12 @@ def match_stats_api(fixture_id):
         "page": page
     }
 
+# ✅ Partie à remplacer ENTIEREMENT dans routes.py
+
 @main.route('/player/<int:player_id>/history')
 def player_stat_history(player_id):
+    from datetime import datetime
+
     stat = request.args.get("stat", "goals")
     limit = int(request.args.get("limit", 5))
     filter_type = request.args.get("filter", "")
@@ -561,7 +600,7 @@ def player_stat_history(player_id):
             elif filter_type == "both_halves":
                 return sum(1 for d in data if d.get("value", 0) >= 1 and d.get("status") != "none")
             else:
-                return sum(1 for d in data if float(d["value"]) >= float(cut))
+                return sum(1 for d in data if float(d.get("value", 0)) >= float(cut))
 
         def format_ratio(data):
             total = len(data)
@@ -572,78 +611,108 @@ def player_stat_history(player_id):
             return f"{hits}/{total} ({percent}%)"
 
         def total_goals(data):
-            return sum(float(d.get("value", 0)) for d in data if d.get("value") and d.get("value") > 0.1)
+            return sum(float(d.get("value", 0)) for d in data if d.get("value", 0) > 0.1)
 
-        # 🔍 Ligue du match courant
         match = get_match_with_player_stats(fixture_id)
         if not match:
             return jsonify({"error": "Fixture introuvable"}), 404
         league_id = match["league_id"]
 
-        # 📊 Stats principales
         history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type, league_id=league_id)
         for item in history_dynamic:
             if item.get("value") == 0 and item.get("minutes", 0) > 0:
-                item["value"] = 0.1  # Pour forcer la barre rouge
+                item["value"] = 0.1
 
-        # 🧩 Ajout Home/Away/PlayerTeam
-        fixture_ids = [m["fixture_id"] for m in history_dynamic]
-        team_info_map = {}
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT fixture_id, status FROM player_match_presence WHERE player_id = ?", (player_id,))
+            absences = cursor.fetchall()
+            absent_ids = [row[0] for row in absences]
+            status_map = {row[0]: row[1] for row in absences}
+
+        fixture_ids = list(set(m["fixture_id"] for m in history_dynamic) | set(absent_ids))
+        team_info_map, score_map, date_map = {}, {}, {}
+
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
             if fixture_ids:
                 placeholders = ",".join("?" for _ in fixture_ids)
+
                 cursor.execute(
                     f"""SELECT f.id, f.home_team_id, f.away_team_id, ps.team_id
                         FROM fixtures f
-                        JOIN player_stats ps ON ps.fixture_id = f.id AND ps.player_id = ?
+                        LEFT JOIN player_stats ps ON ps.fixture_id = f.id AND ps.player_id = ?
                         WHERE f.id IN ({placeholders})""",
                     [player_id] + fixture_ids
                 )
-                for row in cursor.fetchall():
-                    fid, home_id, away_id, player_team_id = row
+                for fid, home_id, away_id, player_team_id in cursor.fetchall():
                     team_info_map[fid] = {
                         "home_team_id": home_id,
                         "away_team_id": away_id,
                         "player_team_id": player_team_id
                     }
 
-        for match in history_dynamic:
-            info = team_info_map.get(match["fixture_id"], {})
-            match["home_team_id"] = info.get("home_team_id")
-            match["away_team_id"] = info.get("away_team_id")
-            match["player_team_id"] = info.get("player_team_id")
-
-        # ✅ Ajout score au format texte
-        score_map = {}
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            if fixture_ids:
-                placeholders = ",".join("?" for _ in fixture_ids)
                 cursor.execute(
-                    f"""SELECT f.id, f.home_goals, f.away_goals, t1.name, t2.name
+                    f"""SELECT f.id, f.date, f.home_goals, f.away_goals, t1.name, t2.name
                         FROM fixtures f
                         JOIN teams t1 ON f.home_team_id = t1.id
                         JOIN teams t2 ON f.away_team_id = t2.id
                         WHERE f.id IN ({placeholders})""",
                     fixture_ids
                 )
-                for row in cursor.fetchall():
-                    fid, hg, ag, home_name, away_name = row
-                    if hg is not None and ag is not None:
-                        score_map[fid] = f"{home_name} {hg} - {ag} {away_name}"
-                    else:
-                        score_map[fid] = ""
+                for fid, date_str, hg, ag, home_name, away_name in cursor.fetchall():
+                    date_map[fid] = date_str
+                    score_map[fid] = f"{home_name} {hg} - {ag} {away_name}" if hg is not None and ag is not None else ""
+
+        existing_ids = {m["fixture_id"] for m in history_dynamic}
+        for fid in absent_ids:
+            if fid not in existing_ids:
+                history_dynamic.append({
+                    "fixture_id": fid,
+                    "value": 0,
+                    "minutes": 0,
+                    "date": date_map.get(fid, ""),
+                    "home_team_id": team_info_map.get(fid, {}).get("home_team_id"),
+                    "away_team_id": team_info_map.get(fid, {}).get("away_team_id"),
+                    "player_team_id": team_info_map.get(fid, {}).get("player_team_id"),
+                    "status": status_map.get(fid, "absent"),
+                    "score": score_map.get(fid, "")
+                })
 
         for match in history_dynamic:
-            match["score"] = score_map.get(match["fixture_id"], "")
+            fid = match["fixture_id"]
+            info = team_info_map.get(fid, {})
+            match["home_team_id"] = info.get("home_team_id")
+            match["away_team_id"] = info.get("away_team_id")
+            match["player_team_id"] = info.get("player_team_id")
+            match["status"] = status_map.get(fid, match.get("status", ""))
+            match["score"] = score_map.get(fid, match.get("score", ""))
+            match["date"] = match.get("date") or date_map.get(fid, "")
 
-        # 📊 Performance cards
+            # 🔧 Nettoyage date pour le front
+            try:
+                raw_date = match.get("date", "")
+                if "T" in raw_date:
+                    dt = datetime.strptime(raw_date, "%Y-%m-%dT%H:%M:%S%z")
+                    match["date"] = dt.strftime("%Y-%m-%d")
+            except Exception as e:
+                print(f"⚠️ Erreur conversion date pour match {fid} : {e}")
+                match["date"] = ""
+
+        # ✅ Tri par date (sans erreur de comparaison tz-aware vs tz-naive)
+        def get_sort_date(m):
+            try:
+                return datetime.strptime(m.get("date", ""), "%Y-%m-%d")
+            except Exception:
+                return datetime.min
+
+        history_dynamic.sort(key=get_sort_date, reverse=True)
+
+        # 📊 Performance
         history_5 = get_player_match_stats(player_id, stat, 5, filter_type, league_id=league_id)
         history_10 = get_player_match_stats(player_id, stat, 10, filter_type, league_id=league_id)
         history_20 = get_player_match_stats(player_id, stat, 20, filter_type, league_id=league_id)
 
-        # 🧱 Tous les matchs joués
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -655,10 +724,9 @@ def player_stat_history(player_id):
             """, (player_id,))
             all_matches = cursor.fetchall()
 
-        all_stats = get_player_match_stats(player_id, stat, limit=1000, filter_type=filter_type, league_id=league_id)
+        all_stats = get_player_match_stats(player_id, stat, 1000, filter_type, league_id=league_id)
         player_fixture_ids = {m[0] for m in all_matches}
 
-        # 🎯 H2H
         h2h_opponent_id = None
         for m in all_matches:
             if m[0] == fixture_id:
@@ -668,12 +736,8 @@ def player_stat_history(player_id):
 
         h2h_ids = {m[0] for m in all_matches if (m[2] == h2h_opponent_id or m[3] == h2h_opponent_id)}
         h2h_stats = [s for s in all_stats if s["fixture_id"] in h2h_ids]
-
-        # 🏠 Domicile
         home_ids = [m[0] for m in all_matches if m[2] == m[4]]
         home_stats = [s for s in all_stats if s["fixture_id"] in home_ids]
-
-        # 📅 Saison
         season_played_stats = [s for s in all_stats if s["fixture_id"] in player_fixture_ids]
 
         return jsonify({
@@ -684,13 +748,18 @@ def player_stat_history(player_id):
                 "last_20": f"{format_ratio(history_20)} | {total_goals(history_20)} But",
                 "h2h": f"{format_ratio(h2h_stats)} | {total_goals(h2h_stats)} But",
                 "home": f"{format_ratio(home_stats)} | {total_goals(home_stats)} But",
-                "season": f"{format_ratio(season_played_stats)} | {total_goals(season_played_stats)} But",
+                "season": f"{format_ratio(season_played_stats)} | {total_goals(season_played_stats)} But"
             }
         })
 
     except Exception as e:
         print("❌ ERREUR :", e)
         return jsonify({"error": str(e)}), 500
+
+
+
+
+
 
 
 
@@ -771,11 +840,6 @@ def get_team_goal_series_route(team_id):
         traceback.print_exc()  # Montre l'erreur dans la console
         return jsonify({"error": str(e)}), 500
 
-@main.route('/team/<int:team_id>/season_stats')
-def team_season_stats(team_id):
-    season = get_current_season_int()  # Exemple : 2024/2025
-    stats = get_team_season_stats(team_id, season)
-    return jsonify(stats)
 
 @main.route("/team/<int:team_id>/goal_ratio")
 def team_goal_ratio(team_id):
@@ -814,3 +878,65 @@ def debug_242():
         print(f"Match {r[0]} : {r[2]} vs {r[3]} | Score: {r[4]} - {r[5]}")
 
     return f"<h1>{len(rows)} matchs trouvés pour la ligue 242 (sans JOIN)</h1>"
+
+@main.route("/team/<int:team_id>/half_time_goal_ratio")
+def half_time_goal_ratio(team_id):
+    location = request.args.get("location", "")
+    type_ = request.args.get("type", "for")
+    season = request.args.get("season")
+
+    if not season:
+        print("⚠️ Aucune saison reçue")
+    else:
+        print(f"📥 Saison reçue : {season}")
+
+    ratio = get_team_half_time_goal_ratio(team_id, location, type_, season)
+    return jsonify(ratio=ratio)
+
+
+
+@main.route("/team/<int:team_id>/half_time_goal_avg")
+def half_time_goal_avg(team_id):
+    location = request.args.get("location", "")
+    type_ = request.args.get("type", "for")
+    season = request.args.get("season")
+
+    avg = get_team_half_time_goal_avg(team_id, location, type_, season)
+    return jsonify({"ratio": avg})
+
+@main.route('/team/<int:team_id>/season_stat')
+def get_team_season_stat(team_id):
+    from flask import request, jsonify
+    from app.data_access import get_team_stat_ratio
+
+    stat_type = request.args.get("type")         # ex: "over_2_5"
+    location = request.args.get("location", "")  # "", "home", "away"
+    season = request.args.get("season")
+
+    if not stat_type or not season:
+        return jsonify({"error": "Missing parameters"}), 400
+
+    ratio = get_team_stat_ratio(team_id, stat_type, location, season)
+    return jsonify({"ratio": ratio})
+
+@main.route('/team/<int:team_id>/season_stats')
+def get_team_season_stats(team_id):
+    from flask import request, jsonify
+    from app.data_access import get_team_stat_ratio
+
+    season = request.args.get("season")
+    location = request.args.get("location", "")  # overall, home, away
+
+    if not season:
+        return jsonify({"error": "Missing parameters"}), 400
+
+    stat_types = ["over_1_5", "over_2_5", "over_3_5", "btts", "clean_sheet"]
+
+    result = {}
+    for stat in stat_types:
+        ratio = get_team_stat_ratio(team_id, stat, location, season)
+        result[stat] = ratio
+
+    print(f"📤 Statistiques renvoyées pour l'équipe {team_id} ({location}, saison {season}) : {result}")
+    return jsonify(result)
+

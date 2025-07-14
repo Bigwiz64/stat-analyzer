@@ -10,21 +10,25 @@ function loadChartConfig(playerId, matchId) {
   fetch(`/player/${playerId}/history?stat=${stat}&limit=${limit}&filter=${filter}&cut=${cut}&fixture_id=${matchId}`)
     .then(res => res.json())
     .then(data => {
-      // ✅ Supprimer l'ancien graphique
       if (window.chartInstance) {
         window.chartInstance.destroy();
       }
 
       const labels = data.history.map(m => m.date);
-      const values = data.history.map(m => parseFloat(m.value));
-
       const currentFilter = document.getElementById("filter").value;
+
+      const values = data.history.map(m => {
+        if (m.status === "absent") return 0.1; // ✅ Afficher une petite barre pour les absents
+        return parseFloat(m.value);
+      });
+
       const colors = data.history.map(m => {
         const isX1 = currentFilter === "goals";
         const isX2 = currentFilter === "" || currentFilter === null;
         const isMT = currentFilter === "first_half";
         const is2MT = currentFilter === "both_halves";
 
+        if (m.status === "absent") return "#9E9E9E"; // ✅ Couleur grise pour absent
         if (isX1) return (m.value >= cut) ? "#4CAF50" : "#F44336";
         if (isX2) {
           if (m.has_goal_but_not_first_half) return "#ccc";
@@ -47,9 +51,7 @@ function loadChartConfig(playerId, matchId) {
         options: {
           responsive: true,
           animation: { duration: 400 },
-          plugins: {
-            legend: { display: false }
-          },
+          plugins: { legend: { display: false } },
           scales: {
             y: {
               beginAtZero: true,
@@ -64,6 +66,7 @@ function loadChartConfig(playerId, matchId) {
               ticks: {
                 callback: function(value) {
                   const label = this.getLabelForValue(value);
+                  if (!label) return "";
                   const [year, month, day] = label.split("-");
                   return `${day}/${month}/${year}`;
                 },
@@ -83,8 +86,6 @@ function loadChartConfig(playerId, matchId) {
         }
       });
 
-
-      // ✅ Cartes de performance (Last5, Last10, etc)
       const perf = data.performance;
       const container = document.getElementById("performance-cards");
       container.innerHTML = "";
