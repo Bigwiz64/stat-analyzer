@@ -139,12 +139,12 @@ def get_season_from_date(date_str, league_id):
     date_obj = datetime.strptime(date_str[:10], "%Y-%m-%d")
     year = date_obj.year
     month = date_obj.month
-    if league_id in [103, 113, 244, 119, 292]:  # Norvège, Suède, Finlande, Danemark
+    if league_id in [103, 113, 244, 119, 292, 253]:  # Norvège, Suède, Finlande, Danemark
         return year
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    253, 103, 113, 244, 71
+    253
 ]
 
 SEASON_BY_LEAGUE = {
@@ -355,10 +355,17 @@ def insert_fixture(data, season_str, verbose=True):
     already_has_score = result and result[0] is not None and result[1] is not None
 
     if already_has_score and MODE == "rapide":
-        if verbose:
-            print(f"⏭️ Match {fixture['id']} déjà à jour.")
+        print(f"⏭️ Match {fixture['id']} déjà à jour.")
         insert_fixture_events(fixture["id"])
         insert_player_stats(fixture["id"], season_str)
+
+        # Vérifier si les scores MT sont manquants → forcer réparation
+        cursor.execute("SELECT home_goals_ht, away_goals_ht FROM fixtures WHERE id = ?", (fixture["id"],))
+        ht_result = cursor.fetchone()
+        if ht_result[0] is None or ht_result[1] is None:
+            print(f"🔧 Score MT manquant — réparation forcée via events")
+            update_fixture_ht_score_from_events(fixture["id"])
+
         return
 
     home_ht = halftime.get("home", None)

@@ -1023,7 +1023,6 @@ def get_team_half_time_goal_ratio(team_id, location="", type_="for", season=None
         SELECT id, home_team_id, away_team_id, home_goals_ht, away_goals_ht, home_goals, away_goals
         FROM fixtures
         WHERE season = ?
-          AND home_goals IS NOT NULL AND away_goals IS NOT NULL
           AND home_goals_ht IS NOT NULL AND away_goals_ht IS NOT NULL
     """
     params = [season]
