@@ -3,7 +3,8 @@ import sqlite3
 import os
 from data_pipeline.api_utils.path_utils import get_db_path
 from data_pipeline.api_utils.utils_dates import get_season_from_date
-from app.utils import get_position_abbr
+from app.utils import get_position_abbr, get_team_abbr
+from datetime import datetime
 
 
 
@@ -1317,3 +1318,59 @@ def get_match_by_id(fixture_id):
         "home_logo": row[10],
         "away_logo": row[11]
     }
+
+
+
+def get_upcoming_fixtures_in_league(league_id, exclude_fixture_id, limit=10):
+    import re
+    from datetime import datetime
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    now = datetime.utcnow().isoformat()
+
+    query = """
+        SELECT f.id, f.date, f.round,
+               ht.name, ht.logo,
+               at.name, at.logo
+        FROM fixtures f
+        JOIN teams ht ON f.home_team_id = ht.id
+        JOIN teams at ON f.away_team_id = at.id
+        WHERE f.league_id = ?
+          AND f.date > ?
+          AND f.id != ?
+        ORDER BY f.date ASC
+        LIMIT ?
+    """
+    cursor.execute(query, (league_id, now, exclude_fixture_id, limit))
+    rows = cursor.fetchall()
+
+    upcoming = []
+    for row in rows:
+        match_id, date_str, round_, home_name, home_logo, away_name, away_logo = row
+
+        try:
+            date_obj = datetime.fromisoformat(date_str)
+            time_str = date_obj.strftime("%H:%M")
+        except:
+            time_str = ""
+
+        # ✂️ Extraction du numéro de journée uniquement
+        matchday = re.search(r'\d+', round_).group() if round_ and re.search(r'\d+', round_) else ""
+
+        home_abbr = get_team_abbr(home_name)
+        away_abbr = get_team_abbr(away_name)
+
+        upcoming.append({
+            "id": match_id,
+            "date": date_str,
+            "round": f"J-{matchday}" if matchday else "",
+            "time": time_str,
+            "home_team": home_name,
+            "home_logo": home_logo,
+            "home_abbr": home_abbr,
+            "away_team": away_name,
+            "away_logo": away_logo,
+            "away_abbr": away_abbr,
+        })
+
+    return upcoming

@@ -3,7 +3,7 @@ import sqlite3
 
 DB_PATH = "/Users/morane/stat-analyzer/data_pipeline/db/data.db"
 API_KEY = "5343ef8cf97a1d2a8e6d50fd7409cb4e"
-TEAM_ID = 327  # L’équipe de Kasper Høgh
+TEAM_ID = 1607  # L’équipe de Kasper Høgh
 SEASON = 2025
 
 headers = {

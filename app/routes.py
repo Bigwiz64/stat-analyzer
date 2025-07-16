@@ -13,7 +13,8 @@ from .data_access import (
     get_team_avg_goals_per_match,
     get_team_half_time_goal_avg,
     get_team_half_time_goal_ratio,
-    get_player_team_id
+    get_player_team_id,
+    get_upcoming_fixtures_in_league
 )
 from app.utils import convert_utc_to_local
 import sqlite3
@@ -157,14 +158,15 @@ def match_preview(fixture_id):
     from pytz import timezone as pytz_timezone, UTC
     from app.data_access import (
         get_match_with_player_stats,
-        get_match_with_cumulative_player_stats
+        get_match_with_cumulative_player_stats,
+        get_upcoming_fixtures_in_league  # ✅ à ajouter dans data_access.py si pas déjà
     )
 
     # Connexion DB + récupération des données du match
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT f.date, f.round, t1.logo, t2.logo
+            SELECT f.date, f.round, t1.logo, t2.logo, f.league_id
             FROM fixtures f
             JOIN teams t1 ON f.home_team_id = t1.id
             JOIN teams t2 ON f.away_team_id = t2.id
@@ -175,7 +177,7 @@ def match_preview(fixture_id):
     if not result:
         return render_template("match_preview.html", match=None)
 
-    match_date_str, match_round, home_logo, away_logo = result
+    match_date_str, match_round, home_logo, away_logo, league_id = result
 
     # 📅 Conversion date UTC → locale Europe/Paris
     match_date = None
@@ -185,11 +187,9 @@ def match_preview(fixture_id):
         try:
             match_date = datetime.strptime(match_date_str, fmt)
 
-            # Si pas de fuseau dans le datetime => assignation UTC
             if match_date.tzinfo is None:
                 match_date = match_date.replace(tzinfo=UTC)
 
-            # Conversion UTC → Europe/Paris
             match_date = match_date.astimezone(paris_tz)
             break
         except (ValueError, TypeError):
@@ -211,13 +211,18 @@ def match_preview(fixture_id):
     match["round"] = match_round
     match["date_fr"] = match_date.strftime("%d/%m/%Y")
     match["time"] = match_date.strftime("%H:%M")
+    match["league_id"] = league_id
+
+    # 🆕 Récupération des matchs à venir dans la même ligue
+    upcoming_fixtures = get_upcoming_fixtures_in_league(league_id, fixture_id)
 
     return render_template(
         "match_preview.html",
         match=match,
         home_logo=home_logo,
         away_logo=away_logo,
-        season=match.get("season", 2025)
+        season=match.get("season", 2025),
+        upcoming_fixtures=upcoming_fixtures  # ✅ Passé au template
     )
 
 

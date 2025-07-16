@@ -1,6 +1,42 @@
 from datetime import datetime
 from pytz import timezone, UTC
 
+TEAM_ABBREVIATIONS = {
+    "Atlanta United FC": "ATL",
+    "Austin": "AUS",
+    "CF Montreal": "MTL",
+    "Charlotte": "CLT",
+    "Chicago Fire": "CHI",
+    "Colorado Rapids": "COL",
+    "Columbus Crew": "CLB",
+    "DC United": "DC",
+    "FC Cincinnati": "CIN",
+    "FC Dallas": "DAL",
+    "Houston Dynamo": "HOU",
+    "Inter Miami": "MIA",
+    "Los Angeles FC": "LAFC",
+    "Los Angeles Galaxy": "LA",
+    "Minnesota United FC": "MIN",
+    "Nashville SC": "NSH",
+    "New England Revolution": "NE",
+    "New York City FC": "NYC",
+    "New York Red Bulls": "RBNY",
+    "Orlando City SC": "ORL",
+    "Philadelphia Union": "PHI",
+    "Portland Timbers": "POR",
+    "Real Salt Lake": "RSL",
+    "San Diego": "SD",
+    "San Jose Earthquakes": "SJ",
+    "Seattle Sounders": "SEA",
+    "Sporting Kansas City": "SKC",
+    "St. Louis City": "STL",
+    "Toronto FC": "TOR",
+    "Vancouver Whitecaps": "VAN"
+}
+
+def get_team_abbr(team_name):
+    return TEAM_ABBREVIATIONS.get(team_name, team_name[:3].upper() if team_name else "?")
+
 
 def get_position_abbr(position):
     position_map = {

@@ -144,7 +144,7 @@ def get_season_from_date(date_str, league_id):
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    103
+    253
 ]
 
 SEASON_BY_LEAGUE = {
@@ -452,64 +452,72 @@ def update_players_table(team_ids, api_key, season):
         cursor = conn.cursor()
 
         for team_id in team_ids:
-            params = {
-                "team": team_id,
-                "season": int(str(season)[:4])
-            }
+            page = 1
+            while True:
+                params = {
+                    "team": team_id,
+                    "season": int(str(season)[:4]),
+                    "page": page
+                }
 
-            try:
-                response = requests.get("https://v3.football.api-sports.io/players", headers=headers, params=params)
-                data = response.json()
+                try:
+                    response = requests.get("https://v3.football.api-sports.io/players", headers=headers, params=params)
+                    data = response.json()
 
-                if data.get("errors"):
-                    print(f"❌ Erreur API : {data['errors']}")
-                    continue
+                    if data.get("errors"):
+                        print(f"❌ Erreur API pour équipe {team_id} page {page} : {data['errors']}")
+                        break
 
-                for player in data["response"]:
-                    p = player["player"]
-                    stats = player.get("statistics", [{}])[0]
+                    players = data.get("response", [])
+                    if not players:
+                        break  # Plus de pages à traiter
 
-                    player_id = p.get("id")
-                    name = p.get("name")
-                    firstname = p.get("firstname")
-                    lastname = p.get("lastname")
-                    age = p.get("age")
-                    position = stats.get("games", {}).get("position")
-                    nationality = p.get("nationality")
-                    country_flag = p.get("nationality")
-                    team_id = stats.get("team", {}).get("id", team_id)
-                    photo = p.get("photo")
-                    birth_date = p.get("birth", {}).get("date")
-                    birth_place = p.get("birth", {}).get("place")
-                    birth_country = p.get("birth", {}).get("country")
-                    height = p.get("height")
-                    weight = p.get("weight")
-                    rating = stats.get("games", {}).get("rating")
-                    injured = p.get("injured")
+                    for player in players:
+                        p = player["player"]
+                        stats = player.get("statistics", [{}])[0]
 
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO players (
-                            id, name, firstname, lastname, position, age,
-                            country, country_flag, team_id, photo,
+                        player_id = p.get("id")
+                        name = p.get("name")
+                        firstname = p.get("firstname")
+                        lastname = p.get("lastname")
+                        age = p.get("age")
+                        position = stats.get("games", {}).get("position")
+                        nationality = p.get("nationality")
+                        country_flag = p.get("nationality")
+                        team_id_insert = stats.get("team", {}).get("id", team_id)
+                        photo = p.get("photo")
+                        birth_date = p.get("birth", {}).get("date")
+                        birth_place = p.get("birth", {}).get("place")
+                        birth_country = p.get("birth", {}).get("country")
+                        height = p.get("height")
+                        weight = p.get("weight")
+                        rating = stats.get("games", {}).get("rating")
+                        injured = p.get("injured")
+
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO players (
+                                id, name, firstname, lastname, position, age,
+                                country, country_flag, team_id, photo,
+                                birth_date, birth_place, birth_country,
+                                height, weight, rating, injured
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            player_id, name, firstname, lastname, position, age,
+                            nationality, country_flag, team_id_insert, photo,
                             birth_date, birth_place, birth_country,
                             height, weight, rating, injured
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        player_id, name, firstname, lastname, position, age,
-                        nationality, country_flag, team_id, photo,
-                        birth_date, birth_place, birth_country,
-                        height, weight, rating, injured
-                    ))
+                        ))
 
-                print(f"✅ Équipe {team_id} mise à jour")
-            except Exception as e:
-                print(f"❌ Erreur lors de la mise à jour de l'équipe {team_id} : {e}")
+                        print(f"✅ Joueur mis à jour : {player_id} - {name}")
 
-# ❓ Ancien clubs : cette API ne fournit pas directement les clubs précédents.
-# Il faut utiliser un autre endpoint (non disponible dans la version actuelle)
-# ou construire un historique soi-même à partir de la table player_stats par saison.
+                    page += 1  # Page suivante
 
-import requests
+                except Exception as e:
+                    print(f"❌ Erreur pour l'équipe {team_id}, page {page} : {e}")
+                    break
+
+            print(f"📦 Fin mise à jour équipe {team_id}")
+
 
 def insert_lineup_player(player):
     player_id = player["id"]

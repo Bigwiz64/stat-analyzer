@@ -9,6 +9,39 @@
 
 {% block content %}
 {% if match %}
+
+{% if upcoming_fixtures %}
+<div class="upcoming-matches-carousel">
+  
+  <div class="carousel-scroll">
+    {% for fixture in upcoming_fixtures %}
+    <a class="fixture-card-link" href="{{ url_for('main.match_preview', fixture_id=fixture.id) }}">
+      <div class="fixture-card-compact">
+        <div class="fixture-header">
+          <span class="fixture-time">{{ fixture.time }}</span>
+          <span class="fixture-round">{{ fixture.round }}</span>
+        </div>
+        <div class="fixture-team">
+          <img src="{{ fixture.home_logo }}" alt="{{ fixture.home_team }}" class="team-logo">
+          <span class="team-abbr">{{ fixture.home_abbr }}</span>
+          <span class="fixture-score">-</span>
+        </div>
+        <div class="fixture-team">
+          <img src="{{ fixture.away_logo }}" alt="{{ fixture.away_team }}" class="team-logo">
+          <span class="team-abbr">{{ fixture.away_abbr }}</span>
+          <span class="fixture-score">-</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+
+
+
+
 <div class="match-result-card">
   <div class="team team-vertical">
     <img alt="{{ match.home_team }}" class="team-logo-large" src="{{ home_logo }}"/>
