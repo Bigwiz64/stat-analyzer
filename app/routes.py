@@ -12,7 +12,8 @@ from .data_access import (
     get_team_goal_ratio,
     get_team_avg_goals_per_match,
     get_team_half_time_goal_avg,
-    get_team_half_time_goal_ratio
+    get_team_half_time_goal_ratio,
+    get_player_team_id
 )
 from app.utils import convert_utc_to_local
 import sqlite3
@@ -582,8 +583,6 @@ def match_stats_api(fixture_id):
         "page": page
     }
 
-# ✅ Partie à remplacer ENTIEREMENT dans routes.py
-
 @main.route('/player/<int:player_id>/history')
 def player_stat_history(player_id):
     from datetime import datetime
@@ -614,12 +613,20 @@ def player_stat_history(player_id):
         def total_goals(data):
             return sum(float(d.get("value", 0)) for d in data if d.get("value", 0) > 0.1)
 
-        match = get_match_with_player_stats(fixture_id)
+        match = get_match_with_player_stats(fixture_id, player_id)
         if not match:
             return jsonify({"error": "Fixture introuvable"}), 404
         league_id = match["league_id"]
 
-        history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type, league_id=league_id)
+        # Historique principal
+        if filter_type == "home_only":
+            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type="home", league_id=league_id)
+        elif filter_type == "away_only":
+            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type="away", league_id=league_id)
+        else:
+            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type, league_id=league_id)
+
+        # Marquer les 0 comme 0.1 si joueur a joué
         for item in history_dynamic:
             if item.get("value") == 0 and item.get("minutes", 0) > 0:
                 item["value"] = 0.1
@@ -639,32 +646,38 @@ def player_stat_history(player_id):
             if fixture_ids:
                 placeholders = ",".join("?" for _ in fixture_ids)
 
-                cursor.execute(
-                    f"""SELECT f.id, f.home_team_id, f.away_team_id, ps.team_id
-                        FROM fixtures f
-                        LEFT JOIN player_stats ps ON ps.fixture_id = f.id AND ps.player_id = ?
-                        WHERE f.id IN ({placeholders})""",
-                    [player_id] + fixture_ids
-                )
-                for fid, home_id, away_id, player_team_id in cursor.fetchall():
+                # Home/Away ID
+                cursor.execute(f"""
+                    SELECT f.id, f.home_team_id, f.away_team_id
+                    FROM fixtures f
+                    WHERE f.id IN ({placeholders})
+                """, fixture_ids)
+                for fid, home_id, away_id in cursor.fetchall():
                     team_info_map[fid] = {
                         "home_team_id": home_id,
                         "away_team_id": away_id,
-                        "player_team_id": player_team_id
+                        "player_team_id": None
                     }
 
-                cursor.execute(
-                    f"""SELECT f.id, f.date, f.home_goals, f.away_goals, t1.name, t2.name
-                        FROM fixtures f
-                        JOIN teams t1 ON f.home_team_id = t1.id
-                        JOIN teams t2 ON f.away_team_id = t2.id
-                        WHERE f.id IN ({placeholders})""",
-                    fixture_ids
-                )
+                # Score + noms
+                cursor.execute(f"""
+                    SELECT f.id, f.date, f.home_goals, f.away_goals, t1.name, t2.name
+                    FROM fixtures f
+                    JOIN teams t1 ON f.home_team_id = t1.id
+                    JOIN teams t2 ON f.away_team_id = t2.id
+                    WHERE f.id IN ({placeholders})
+                """, fixture_ids)
                 for fid, date_str, hg, ag, home_name, away_name in cursor.fetchall():
                     date_map[fid] = date_str
                     score_map[fid] = f"{home_name} {hg} - {ag} {away_name}" if hg is not None and ag is not None else ""
 
+        # 🧲 Récupération du team_id par fallback
+        for fid in fixture_ids:
+            team_id = get_player_team_id(fid, player_id)
+            if fid in team_info_map:
+                team_info_map[fid]["player_team_id"] = team_id
+
+        # Ajout des absences à l'historique
         existing_ids = {m["fixture_id"] for m in history_dynamic}
         for fid in absent_ids:
             if fid not in existing_ids:
@@ -680,39 +693,38 @@ def player_stat_history(player_id):
                     "score": score_map.get(fid, "")
                 })
 
-        for match in history_dynamic:
-            fid = match["fixture_id"]
+        # Ajout infos aux lignes
+        for match_item in history_dynamic:
+            fid = match_item["fixture_id"]
             info = team_info_map.get(fid, {})
-            match["home_team_id"] = info.get("home_team_id")
-            match["away_team_id"] = info.get("away_team_id")
-            match["player_team_id"] = info.get("player_team_id")
-            match["status"] = status_map.get(fid, match.get("status", ""))
-            match["score"] = score_map.get(fid, match.get("score", ""))
-            match["date"] = match.get("date") or date_map.get(fid, "")
+            match_item.update({
+                "home_team_id": info.get("home_team_id"),
+                "away_team_id": info.get("away_team_id"),
+                "player_team_id": info.get("player_team_id"),
+                "status": status_map.get(fid, match_item.get("status", "")),
+                "score": score_map.get(fid, match_item.get("score", "")),
+                "date": match_item.get("date") or date_map.get(fid, "")
+            })
 
-            # 🔧 Nettoyage date pour le front
             try:
-                raw_date = match.get("date", "")
+                raw_date = match_item.get("date", "")
                 if "T" in raw_date:
                     dt = datetime.strptime(raw_date, "%Y-%m-%dT%H:%M:%S%z")
-                    match["date"] = dt.strftime("%Y-%m-%d")
+                    match_item["date"] = dt.strftime("%Y-%m-%d")
             except Exception as e:
                 print(f"⚠️ Erreur conversion date pour match {fid} : {e}")
-                match["date"] = ""
+                match_item["date"] = ""
 
-        # ✅ Tri par date (sans erreur de comparaison tz-aware vs tz-naive)
-        def get_sort_date(m):
-            try:
-                return datetime.strptime(m.get("date", ""), "%Y-%m-%d")
-            except Exception:
-                return datetime.min
+        history_dynamic.sort(
+            key=lambda m: datetime.strptime(m.get("date", ""), "%Y-%m-%d") if m.get("date") else datetime.min,
+            reverse=True
+        )
 
-        history_dynamic.sort(key=get_sort_date, reverse=True)
-
-        # 📊 Performance
+        # 📊 Statistiques
         history_5 = get_player_match_stats(player_id, stat, 5, filter_type, league_id=league_id)
         history_10 = get_player_match_stats(player_id, stat, 10, filter_type, league_id=league_id)
         history_20 = get_player_match_stats(player_id, stat, 20, filter_type, league_id=league_id)
+        all_stats = get_player_match_stats(player_id, stat, 1000, filter_type, league_id=league_id)
 
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
@@ -725,20 +737,58 @@ def player_stat_history(player_id):
             """, (player_id,))
             all_matches = cursor.fetchall()
 
-        all_stats = get_player_match_stats(player_id, stat, 1000, filter_type, league_id=league_id)
         player_fixture_ids = {m[0] for m in all_matches}
 
-        h2h_opponent_id = None
+        # 🧠 H2H / Localisation
+        player_team_id, match_dict, h2h_opponent_id = None, None, None
         for m in all_matches:
-            if m[0] == fixture_id:
+            if int(m[0]) == fixture_id:
                 player_team_id = m[4]
+                match_dict = {"home_team_id": m[2], "away_team_id": m[3]}
                 h2h_opponent_id = m[2] if m[3] == player_team_id else m[3]
                 break
 
+        # 🔄 Fallback team_id
+        if not player_team_id:
+            with sqlite3.connect(DB_PATH) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT team_id FROM player_match_presence
+                    WHERE player_id = ? AND fixture_id = ?
+                """, (player_id, fixture_id))
+                result = cursor.fetchone()
+                if result:
+                    player_team_id = result[0]
+                    print(f"🔄 Récupéré depuis player_match_presence : team_id = {player_team_id}")
+
+        if not player_team_id:
+            player_team_id = get_player_team_id(fixture_id, player_id)
+            print(f"🧲 fallback via get_player_team_id : {player_team_id}")
+
+        if not match_dict and match:
+            match_dict = {
+                "home_team_id": match.get("home_team_id"),
+                "away_team_id": match.get("away_team_id")
+            }
+
+        # 🧭 Calcul player_location
+        print(f"🧪 DEBUG avant calcul player_location | player_team_id = {player_team_id} | match_dict = {match_dict}")
+        player_location = None
+        if match_dict and player_team_id:
+            if match_dict["home_team_id"] == player_team_id:
+                player_location = "home"
+            elif match_dict["away_team_id"] == player_team_id:
+                player_location = "away"
+
+        print(f"📍 player_location = {player_location}")
+
+        # 📊 Calculs filtres
         h2h_ids = {m[0] for m in all_matches if (m[2] == h2h_opponent_id or m[3] == h2h_opponent_id)}
         h2h_stats = [s for s in all_stats if s["fixture_id"] in h2h_ids]
         home_ids = [m[0] for m in all_matches if m[2] == m[4]]
+        away_ids = [m[0] for m in all_matches if m[3] == m[4]]
         home_stats = [s for s in all_stats if s["fixture_id"] in home_ids]
+        away_stats = [s for s in all_stats if s["fixture_id"] in away_ids]
         season_played_stats = [s for s in all_stats if s["fixture_id"] in player_fixture_ids]
 
         return jsonify({
@@ -749,13 +799,16 @@ def player_stat_history(player_id):
                 "last_20": f"{format_ratio(history_20)} | {total_goals(history_20)} But",
                 "h2h": f"{format_ratio(h2h_stats)} | {total_goals(h2h_stats)} But",
                 "home": f"{format_ratio(home_stats)} | {total_goals(home_stats)} But",
+                "away": f"{format_ratio(away_stats)} | {total_goals(away_stats)} But",
                 "season": f"{format_ratio(season_played_stats)} | {total_goals(season_played_stats)} But"
-            }
+            },
+            "player_location": player_location
         })
 
     except Exception as e:
         print("❌ ERREUR :", e)
         return jsonify({"error": str(e)}), 500
+
 
 
 

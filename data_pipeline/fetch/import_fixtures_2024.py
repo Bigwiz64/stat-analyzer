@@ -144,7 +144,7 @@ def get_season_from_date(date_str, league_id):
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    253
+    103
 ]
 
 SEASON_BY_LEAGUE = {
@@ -420,6 +420,7 @@ def fetch_fixtures(league_id):
     season_api = SEASON_BY_LEAGUE.get(league_id, DEFAULT_SEASON)
     season_str = format_season(season_api)
     print(f"📦 Ligue {league_id} | Saison API: {season_api} | Saison Base: {season_str} | {FROM_DATE} → {TO_DATE}")
+
     res = get_api_json("fixtures", params={
         "league": league_id,
         "season": season_api,
@@ -428,23 +429,32 @@ def fetch_fixtures(league_id):
     })
     fixtures = res.get("response", [])
     total_added = 0
+    team_ids = set()
+
     for fixture in fixtures:
         insert_fixture(fixture, season_str, verbose=(MODE == "complet"))
+        home_id = fixture.get("teams", {}).get("home", {}).get("id")
+        away_id = fixture.get("teams", {}).get("away", {}).get("id")
+        if home_id: team_ids.add(home_id)
+        if away_id: team_ids.add(away_id)
         total_added += 1
+
     print(f"✅ {total_added} matchs traités pour la ligue {league_id}")
+    print(f"🔁 Mise à jour des joueurs pour {len(team_ids)} équipes")
+    update_players_table(list(team_ids), api_key=os.getenv("API_SPORT_KEY"), season=season_str)
     time.sleep(1.5)
 
 def update_players_table(team_ids, api_key, season):
     print(f"🔍 {len(team_ids)} équipes à mettre à jour pour la saison {season}...")
     headers = {"X-RapidAPI-Key": api_key}
-    
+
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
         for team_id in team_ids:
             params = {
                 "team": team_id,
-                "season": int(str(season)[:4])  # Extrait 2024 de "2024-2025"
+                "season": int(str(season)[:4])
             }
 
             try:
@@ -457,26 +467,80 @@ def update_players_table(team_ids, api_key, season):
 
                 for player in data["response"]:
                     p = player["player"]
+                    stats = player.get("statistics", [{}])[0]
+
                     player_id = p.get("id")
                     name = p.get("name")
                     firstname = p.get("firstname")
                     lastname = p.get("lastname")
                     age = p.get("age")
-                    position = player.get("statistics", [{}])[0].get("games", {}).get("position")
+                    position = stats.get("games", {}).get("position")
                     nationality = p.get("nationality")
-                    country_flag = p.get("nationality")  # Tu peux améliorer ça si besoin
+                    country_flag = p.get("nationality")
+                    team_id = stats.get("team", {}).get("id", team_id)
+                    photo = p.get("photo")
+                    birth_date = p.get("birth", {}).get("date")
+                    birth_place = p.get("birth", {}).get("place")
+                    birth_country = p.get("birth", {}).get("country")
+                    height = p.get("height")
+                    weight = p.get("weight")
+                    rating = stats.get("games", {}).get("rating")
+                    injured = p.get("injured")
 
                     cursor.execute("""
-                        INSERT OR REPLACE INTO players (id, name, firstname, lastname, position, age, country, country_flag, team_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (player_id, name, firstname, lastname, position, age, nationality, country_flag, team_id))
-
+                        INSERT OR REPLACE INTO players (
+                            id, name, firstname, lastname, position, age,
+                            country, country_flag, team_id, photo,
+                            birth_date, birth_place, birth_country,
+                            height, weight, rating, injured
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        player_id, name, firstname, lastname, position, age,
+                        nationality, country_flag, team_id, photo,
+                        birth_date, birth_place, birth_country,
+                        height, weight, rating, injured
+                    ))
 
                 print(f"✅ Équipe {team_id} mise à jour")
             except Exception as e:
                 print(f"❌ Erreur lors de la mise à jour de l'équipe {team_id} : {e}")
 
+# ❓ Ancien clubs : cette API ne fournit pas directement les clubs précédents.
+# Il faut utiliser un autre endpoint (non disponible dans la version actuelle)
+# ou construire un historique soi-même à partir de la table player_stats par saison.
+
 import requests
+
+def insert_lineup_player(player):
+    player_id = player["id"]
+    team_id = player["team"]["id"]
+    firstname = player.get("firstname", "")
+    lastname = player.get("lastname", "")
+    name = player.get("name", f"{firstname} {lastname}")
+    position = player.get("position", "")
+    country = player.get("nationality", "")
+    flag = player.get("country", {}).get("flag", "")
+
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+
+        # Vérifie si le joueur existe déjà
+        cursor.execute("SELECT id FROM players WHERE id = ?", (player_id,))
+        exists = cursor.fetchone()
+
+        if exists:
+            cursor.execute("""
+                UPDATE players SET team_id = ?, name = ?, position = ?, firstname = ?, lastname = ?, country = ?, country_flag = ?
+                WHERE id = ?
+            """, (team_id, name, position, firstname, lastname, country, flag, player_id))
+        else:
+            cursor.execute("""
+                INSERT INTO players (id, team_id, name, position, firstname, lastname, country, country_flag)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (player_id, team_id, name, position, firstname, lastname, country, flag))
+
+        conn.commit()
+
 
 def update_unknown_players_info(api_key, season):
     print("🔍 Recherche des joueurs inconnus à mettre à jour...")

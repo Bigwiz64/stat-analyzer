@@ -16,9 +16,11 @@ function loadChartConfig(playerId, matchId) {
 
       const labels = data.history.map(m => m.date);
       const currentFilter = document.getElementById("filter").value;
+      const playerLocation = data.player_location; // "home" ou "away"
+      console.log("📍 playerLocation =", playerLocation);
 
       const values = data.history.map(m => {
-        if (m.status === "absent") return 0.1; // ✅ Afficher une petite barre pour les absents
+        if (m.status === "absent") return 0.1;
         return parseFloat(m.value);
       });
 
@@ -28,7 +30,7 @@ function loadChartConfig(playerId, matchId) {
         const isMT = currentFilter === "first_half";
         const is2MT = currentFilter === "both_halves";
 
-        if (m.status === "absent") return "#9E9E9E"; // ✅ Couleur grise pour absent
+        if (m.status === "absent") return "#9E9E9E";
         if (isX1) return (m.value >= cut) ? "#4CAF50" : "#F44336";
         if (isX2) {
           if (m.has_goal_but_not_first_half) return "#ccc";
@@ -131,9 +133,10 @@ function loadChartConfig(playerId, matchId) {
           </div>
         `;
 
+        div.style.cursor = "pointer";
+
         if (card.label.startsWith("Ls")) {
           const limitValue = parseInt(card.label.replace("Ls ", "")) || 5;
-          div.style.cursor = "pointer";
           if (limitValue === limit) div.classList.add("active");
           div.addEventListener("click", () => {
             document.getElementById("limit").value = limitValue;
@@ -141,6 +144,33 @@ function loadChartConfig(playerId, matchId) {
             div.classList.add("active");
             window.loadChartConfig(playerId, matchId);
           });
+        }
+
+        if (card.label === "Dom") {
+          div.addEventListener("click", () => {
+            document.getElementById("filter").value = "home_only";
+            window.loadChartConfig(playerId, matchId);
+          });
+        }
+
+        if (card.label === "Ext") {
+          div.addEventListener("click", () => {
+            document.getElementById("filter").value = "away_only";
+            window.loadChartConfig(playerId, matchId);
+          });
+        }
+
+        // 💡 Ajout dynamique des classes highlight et blurred
+        if ((playerLocation === "home" && card.label === "Dom") ||
+            (playerLocation === "away" && card.label === "Ext")) {
+          div.classList.add("highlight");
+          console.log(`✨ Carte mise en évidence : ${card.label}`);
+        }
+
+        if ((playerLocation === "home" && card.label === "Ext") ||
+            (playerLocation === "away" && card.label === "Dom")) {
+          div.classList.add("blurred");
+          console.log(`💤 Carte estompée : ${card.label}`);
         }
 
         container.appendChild(div);

@@ -2128,3 +2128,18 @@ body.chart-visible .player-list-block {
   text-align: center;
 }
 
+/* Mise en évidence de la carte utile */
+.performance-card.highlight {
+  border: 2px solid #f1895c !important;
+  box-shadow: 0 0 12px rgba(241, 137, 92, 0.5) !important;
+  transform: scale(1.05);
+  z-index: 2;
+}
+
+/* Floutage visuel de la carte non pertinente */
+.performance-card.blurred {
+  opacity: 0.4 !important;
+  filter: blur(1.2px) !important;
+  pointer-events: none;
+}
+

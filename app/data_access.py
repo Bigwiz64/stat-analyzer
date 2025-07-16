@@ -325,9 +325,17 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
                 WHERE ps.player_id = ?
             """
             params = [player_id]
+
             if league_id:
                 base_query += " AND f.league_id = ?"
                 params.append(league_id)
+
+            # 🔁 Filtres DOM / EXT
+            if filter_type == "home":
+                base_query += " AND f.home_team_id = ps.team_id"
+            elif filter_type == "away":
+                base_query += " AND f.away_team_id = ps.team_id"
+
             base_query += " ORDER BY f.date DESC LIMIT ?"
             params.append(limit)
 
@@ -482,7 +490,54 @@ def get_team_season_stats(team_id, league_id, season):
 
     return results
 
-def get_match_with_player_stats(fixture_id):
+def get_player_team_id(fixture_id, player_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+
+        # Étape 1 : Chercher dans player_stats
+        cursor.execute("""
+            SELECT team_id FROM player_stats
+            WHERE player_id = ? AND fixture_id = ?
+        """, (player_id, fixture_id))
+        result = cursor.fetchone()
+        if result:
+            print(f"🔍 team_id trouvé via player_stats : {result[0]}")
+            return result[0]
+        else:
+            print(f"❌ Aucun team_id trouvé dans player_stats pour player {player_id} / fixture {fixture_id}")
+
+        # Étape 2 : Chercher dans player_match_presence
+        cursor.execute("""
+            SELECT team_id FROM player_match_presence
+            WHERE player_id = ? AND fixture_id = ?
+        """, (player_id, fixture_id))
+        result = cursor.fetchone()
+        if result:
+            print(f"🔍 team_id trouvé via player_match_presence : {result[0]}")
+            return result[0]
+        else:
+            print(f"❌ Aucun team_id trouvé dans player_match_presence pour player {player_id} / fixture {fixture_id}")
+
+        # Étape 3 : Fallback depuis players
+        cursor.execute("""
+            SELECT team_id FROM players
+            WHERE id = ?
+            ORDER BY id DESC
+            LIMIT 1
+        """, (player_id,))
+        result = cursor.fetchone()
+        if result:
+            print(f"🔁 team_id fallback depuis players : {result[0]}")
+            return result[0]
+        else:
+            print(f"❌ Aucun team_id trouvé dans la table players pour player {player_id}")
+
+    print(f"🛑 Aucun team_id trouvé pour player {player_id} / fixture {fixture_id}")
+    return None
+
+
+
+def get_match_with_player_stats(fixture_id, player_id=None):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
@@ -512,12 +567,13 @@ def get_match_with_player_stats(fixture_id):
             "away_players": [],
             "home_goals": match[7],
             "away_goals": match[8],
-            "players": []
+            "players": [],
+            "player_team_id": None  # 🔍 Ajout du champ ici
         }
 
         print(f"📊 Traitement du match : {match_data['home_team']} vs {match_data['away_team']} (ID {fixture_id})")
 
-        # 2. Récupère tous les événements du match
+        # 2. Événements
         cursor.execute("""
             SELECT player_id, assist_id, type, detail
             FROM fixture_events
@@ -526,7 +582,7 @@ def get_match_with_player_stats(fixture_id):
         events = cursor.fetchall()
         print(f"📌 Événements récupérés : {len(events)}")
 
-        # 3. Récupère tous les joueurs ayant des stats
+        # 3. Stats des joueurs
         cursor.execute("""
             SELECT p.id, p.name, p.position, ps.minutes, ps.team_id
             FROM player_stats ps
@@ -536,16 +592,14 @@ def get_match_with_player_stats(fixture_id):
         stats = cursor.fetchall()
         print(f"👥 Joueurs avec stats récupérés : {len(stats)}")
 
-        # ⚠️ Si aucun joueur n’a de stat, retourne quand même le match (utile pour les absents)
         if not stats:
             print("⚠️ Aucun joueur avec stats — retour données de base")
             return match_data
 
-        # 4. Construction de la liste des joueurs
         for row in stats:
-            player_id = row[0]
+            player_id_row = row[0]
             player = {
-                "id": player_id,
+                "id": player_id_row,
                 "name": row[1],
                 "position": row[2],
                 "position_abbr": get_position_abbr(row[2]),
@@ -558,16 +612,20 @@ def get_match_with_player_stats(fixture_id):
                 "red_cards": 0
             }
 
+            # ➕ Si c’est le joueur demandé, on stocke son équipe
+            if player_id and player_id_row == player_id:
+                match_data["player_team_id"] = row[4]
+
             for e_player_id, e_assist_id, e_type, e_detail in events:
                 if e_type == "Goal":
-                    if e_player_id == player_id:
+                    if e_player_id == player_id_row:
                         player["goals"] += 1
                         if e_detail == "Penalty":
                             player["penalty_scored"] += 1
-                    if e_assist_id == player_id:
+                    if e_assist_id == player_id_row:
                         player["assists"] += 1
 
-                if e_type == "Card" and e_player_id == player_id:
+                if e_type == "Card" and e_player_id == player_id_row:
                     if e_detail == "Yellow Card":
                         player["yellow_cards"] += 1
                     elif e_detail == "Red Card":
@@ -582,10 +640,24 @@ def get_match_with_player_stats(fixture_id):
 
         print(f"✅ Joueurs domicile : {len(match_data['home_players'])}")
         print(f"✅ Joueurs extérieur : {len(match_data['away_players'])}")
+        print(f"🏷️ player_team_id extrait : {match_data['player_team_id']}")
 
-        return match_data
-
-
+        # 🔄 Fallback si player_team_id est toujours None
+        if player_id and not match_data["player_team_id"]:
+            print("🔍 Fallback via player_match_presence pour player_id =", player_id)
+            cursor.execute("""
+                SELECT team_id FROM player_match_presence
+                WHERE player_id = ? AND fixture_id = ?
+            """, (player_id, fixture_id))
+            row = cursor.fetchone()
+            if row:
+                match_data["player_team_id"] = row[0]
+                print(f"✅ team_id trouvé via player_match_presence : {match_data['player_team_id']}")
+            else:
+                print(f"❌ Aucun team_id trouvé pour player_id={player_id} dans match {fixture_id}")
+        
+        
+                return match_data
 
     
 def repair_player_stats_from_events(fixture_id):
