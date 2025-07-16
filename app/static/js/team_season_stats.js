@@ -12,35 +12,34 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   function setBar(barElement, value, label = null) {
-  if (!barElement) return;
+    if (!barElement) return;
 
-  // Récupération du filtre actif (Marqué ou Encaissé)
-  const isHome = barElement.id.includes("home");
-  const typeKey = isHome ? "type-home" : "type-away";
-  const currentType = state[typeKey]; // "Marqué" ou "Encaissé"
+    // Récupération du filtre actif (Marqué ou Encaissé)
+    const isHome = barElement.id.includes("home");
+    const typeKey = isHome ? "type-home" : "type-away";
+    const currentType = state[typeKey]; // "Marqué" ou "Encaissé"
 
-  // Supprimer anciennes classes de couleur
-  barElement.classList.remove("marquer", "encaisser");
+    // Supprimer anciennes classes de couleur
+    barElement.classList.remove("marquer", "encaisser");
 
-  // Ajouter la classe selon le type
-  if (currentType === "Marqué") {
-    barElement.classList.add("marquer");
-  } else {
-    barElement.classList.add("encaisser");
+    // Ajouter la classe selon le type
+    if (currentType === "Marqué") {
+      barElement.classList.add("marquer");
+    } else {
+      barElement.classList.add("encaisser");
+    }
+
+    barElement.style.opacity = "1";
+    barElement.style.width = `${value}%`;
+
+    const oldLabel = barElement.parentElement.querySelector(".bar-label");
+    if (oldLabel) oldLabel.remove();
+
+    const newLabel = document.createElement("div");
+    newLabel.className = "bar-label";
+    newLabel.textContent = label ?? `${Math.round(value)}%`;
+    barElement.parentElement.appendChild(newLabel);
   }
-
-  barElement.style.opacity = "1";
-  barElement.style.width = `${value}%`;
-
-  const oldLabel = barElement.parentElement.querySelector(".bar-label");
-  if (oldLabel) oldLabel.remove();
-
-  const newLabel = document.createElement("div");
-  newLabel.className = "bar-label";
-  newLabel.textContent = label ?? `${Math.round(value)}%`;
-  barElement.parentElement.appendChild(newLabel);
-}
-
 
   function updateBars() {
     updateGoalRatioBars();
@@ -59,7 +58,6 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/team/${window.HOME_TEAM_ID}/goal_ratio?location=${loc}&type=${type}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
         .then(data => {
-          console.log("🏠 Ratio buts total (home):", data.ratio);
           setBar(homeBar, data.ratio);
         });
     }
@@ -70,7 +68,6 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/team/${window.AWAY_TEAM_ID}/goal_ratio?location=${loc}&type=${type}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
         .then(data => {
-          console.log("🛫 Ratio buts total (away):", data.ratio);
           setBar(awayBar, data.ratio);
         });
     }
@@ -86,10 +83,9 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/team/${window.HOME_TEAM_ID}/goal_avg?location=${loc}&type=${type}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
         .then(data => {
-          const average = parseFloat(data.ratio);
-          console.log("🏠 Moyenne buts (home):", average);
-          const width = Math.min((average / 3) * 100, 100);
-          const label = average.toFixed(2).replace('.', ',');
+          const avg = parseFloat(data.ratio);
+          const width = Math.min((avg / 3) * 100, 100);
+          const label = avg.toFixed(2).replace('.', ',');
           setBar(homeAvgBar, width, label);
         });
     }
@@ -100,10 +96,9 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/team/${window.AWAY_TEAM_ID}/goal_avg?location=${loc}&type=${type}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
         .then(data => {
-          const average = parseFloat(data.ratio);
-          console.log("🛫 Moyenne buts (away):", average);
-          const width = Math.min((average / 3) * 100, 100);
-          const label = average.toFixed(2).replace('.', ',');
+          const avg = parseFloat(data.ratio);
+          const width = Math.min((avg / 3) * 100, 100);
+          const label = avg.toFixed(2).replace('.', ',');
           setBar(awayAvgBar, width, label);
         });
     }
@@ -123,7 +118,6 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/team/${window.HOME_TEAM_ID}/half_time_goal_ratio?location=${locHome}&type=${typeHome}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
         .then(data => {
-          console.log("🏠 Ratio Mi-Temps (home):", data.ratio);
           setBar(homeBar, data.ratio);
         });
     }
@@ -132,7 +126,6 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/team/${window.AWAY_TEAM_ID}/half_time_goal_ratio?location=${locAway}&type=${typeAway}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
         .then(data => {
-          console.log("🛫 Ratio Mi-Temps (away):", data.ratio);
           setBar(awayBar, data.ratio);
         });
     }
@@ -152,10 +145,9 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/team/${window.HOME_TEAM_ID}/half_time_goal_avg?location=${locHome}&type=${typeHome}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
         .then(data => {
-          const average = parseFloat(data.ratio);
-          console.log("🏠 Moyenne Mi-Temps (home):", average);
-          const width = Math.min((average / 2) * 100, 100);
-          const label = average.toFixed(2).replace('.', ',');
+          const avg = parseFloat(data.ratio);
+          const width = Math.min((avg / 2) * 100, 100);
+          const label = avg.toFixed(2).replace('.', ',');
           setBar(homeBar, width, label);
         });
     }
@@ -164,10 +156,9 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/team/${window.AWAY_TEAM_ID}/half_time_goal_avg?location=${locAway}&type=${typeAway}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
         .then(data => {
-          const average = parseFloat(data.ratio);
-          console.log("🛫 Moyenne Mi-Temps (away):", average);
-          const width = Math.min((average / 2) * 100, 100);
-          const label = average.toFixed(2).replace('.', ',');
+          const avg = parseFloat(data.ratio);
+          const width = Math.min((avg / 2) * 100, 100);
+          const label = avg.toFixed(2).replace('.', ',');
           setBar(awayBar, width, label);
         });
     }
@@ -190,4 +181,58 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   updateBars();
+
+  // 🔁 Filtres pour Statistique Saison
+  const saisonGroup = document.querySelector('.filter-group-statsaison');
+  let currentSaisonLocation = "";
+
+  if (saisonGroup) {
+    const saisonButtons = saisonGroup.querySelectorAll('.filter-btn');
+    saisonButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        saisonButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSaisonLocation = btn.dataset.value;
+        updateSeasonStatsBars();
+      });
+    });
+  }
+
+  function updateSeasonStatsBars() {
+  const seasonStats = [
+    { id: "over_1_5" },
+    { id: "over_2_5" },
+    { id: "over_3_5" },
+    { id: "btts" },
+    { id: "clean_sheet", type: "against" }
+  ];
+
+  seasonStats.forEach(stat => {
+    const suffix = stat.id;
+    const type = stat.type || "for";
+
+    const homeBar = document.getElementById(`home_${suffix}`);
+    const awayBar = document.getElementById(`away_${suffix}`);
+
+    if (homeBar) {
+      homeBar.classList.add("season-home");  // 🔵 Couleur bleue pour home
+      fetch(`/team/${window.HOME_TEAM_ID}/season_stat?type=${suffix}&location=${currentSaisonLocation}&season=${window.CURRENT_SEASON}`)
+        .then(res => res.json())
+        .then(data => {
+          setBar(homeBar, data.ratio);
+        });
+    }
+
+    if (awayBar) {
+      awayBar.classList.add("season-away");  // 🟠 Couleur orange pour away
+      fetch(`/team/${window.AWAY_TEAM_ID}/season_stat?type=${suffix}&location=${currentSaisonLocation}&season=${window.CURRENT_SEASON}`)
+        .then(res => res.json())
+        .then(data => {
+          setBar(awayBar, data.ratio);
+        });
+    }
+  });
+}
+
+  updateSeasonStatsBars();
 });

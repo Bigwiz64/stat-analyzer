@@ -2151,4 +2151,12 @@ body.chart-visible .player-list-block {
   background-color: #fff;
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
+/* Couleurs spécifiques pour Statistique Saison */
+.stat-bar-fill.season-home {
+  background-color: #516079; /* 🔵 Bleu foncé */
+}
+
+.stat-bar-fill.season-away {
+  background-color: #f1895c; /* 🟠 Orange */
+}
 
