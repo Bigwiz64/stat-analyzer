@@ -2143,3 +2143,12 @@ body.chart-visible .player-list-block {
   pointer-events: none;
 }
 
+.stat-section-box {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background-color: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
