@@ -75,9 +75,9 @@
   <div class="player-list-block expanded" id="playerListBlock">
     <div class="scrollable-player-list">
       <div class="team-toggle-buttons">
-        <button class="filter-btn active" data-team="all">Tous</button>
-        <button class="filter-btn" data-team="home">Domicile</button>
-        <button class="filter-btn" data-team="away">Extérieur</button>
+        <button class="filter-btn active" data-team="all">ALL</button>
+        <button class="filter-btn" data-team="home">DOM</button>
+        <button class="filter-btn" data-team="away">EXT</button>
       </div>
       <table class="player-table">
         <thead>
@@ -120,6 +120,7 @@
     <div class="stat-content" id="statContent" style="display: none;">
       <h3 id="selected-player-name">Statistiques</h3>
       <div class="form-block" id="player-form" style="display: none;">
+        <div class="stat-section-box">
         <form id="statForm">
           <div class="stat-button-group" id="stat-buttons"></div>
           <div class="sub-option-group" id="sub-options" style="display: none;"></div>
@@ -129,6 +130,7 @@
           <input id="filter" name="filter" type="hidden" value=""/>
           <input id="limit" name="limit" type="hidden" value="5"/>
         </form>
+      </div>
       </div>
       <div class="chart-block chart-hidden" id="player-chart" style="display: none;">
         <canvas id="chartCanvas"></canvas>
@@ -252,7 +254,7 @@
 </div>
 
 <div class="section-title">
-  <h3>Statistique Saison</h3>
+  <h3>Statistique Saison Temps réglementaire</h3>
 </div>
 
 <div class="stat-card">
@@ -302,6 +304,20 @@
     </div>
   </div>
 
+  <!-- Bloc : Moyenne GF + GA -->
+<div class="stat-block-dual">
+  <div class="stat-title">GF + GA par match</div>
+  <div class="stat-line-dual">
+    <div class="stat-bar-track reverse">
+      <div class="stat-bar-fill home marquer" id="home_total_goals_avg"></div>
+    </div>
+    <div class="stat-bar-track">
+      <div class="stat-bar-fill away marquer" id="away_total_goals_avg"></div>
+    </div>
+  </div>
+</div>
+
+
   <!-- Bloc : BTTS -->
   <div class="stat-block-dual">
     <div class="stat-title">BTTS (les 2 équipes marquent)</div>
@@ -329,6 +345,39 @@
   </div>
 </div>
 
+<div class="section-title">
+  <h3>Buts par période de temps</h3>
+</div>
+
+<div class="stat-card">
+  <div class="interval-team-switch">
+    <button class="interval-team-btn active" data-team="home">{{ match.home_team }}</button>
+    <button class="interval-team-btn" data-team="away">{{ match.away_team }}</button>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-container">
+      <h4>Tous</h4>
+      <canvas id="chart_all" data-location="all"></canvas>
+      <div id="legend_chart_all" class="custom-chart-legend"></div>
+    </div>
+    <div class="chart-container">
+      <h4>Domicile</h4>
+      <canvas id="chart_home" data-location="home"></canvas>
+      <div id="legend_chart_home" class="custom-chart-legend"></div>
+    </div>
+    <div class="chart-container">
+      <h4>Extérieure</h4>
+      <canvas id="chart_away" data-location="away"></canvas>
+      <div id="legend_chart_away" class="custom-chart-legend"></div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
 
 
 
@@ -339,6 +388,8 @@
   window.MATCH_ID = {{ match.id | tojson }};
   window.HOME_TEAM_ID = {{ match.home_team_id | tojson }};
   window.AWAY_TEAM_ID = {{ match.away_team_id | tojson }};
+  window.HOME_TEAM_NAME = "{{ match.home_team }}";
+  window.AWAY_TEAM_NAME = "{{ match.away_team }}";
   window.CURRENT_SEASON = {{ season | tojson }};
 </script>
 

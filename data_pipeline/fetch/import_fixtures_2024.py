@@ -139,12 +139,12 @@ def get_season_from_date(date_str, league_id):
     date_obj = datetime.strptime(date_str[:10], "%Y-%m-%d")
     year = date_obj.year
     month = date_obj.month
-    if league_id in [103, 113, 244, 119, 292, 253]:  # Norvège, Suède, Finlande, Danemark
+    if league_id in [103, 113, 244, 119, 292, 253, 169, 98, 164, 71]:  # Norvège, Suède, Finlande, Danemark, Corée, MLS, Chine, Japon, Islande
         return year
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    253
+    71
 ]
 
 SEASON_BY_LEAGUE = {
@@ -157,7 +157,7 @@ SEASON_BY_LEAGUE = {
 }
 
 DEFAULT_SEASON = 2024
-FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-02-15"
+FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-03-15"
 TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-08-01"
 MODE = sys.argv[3] if len(sys.argv) > 3 else "complet"
 
@@ -275,57 +275,42 @@ def get_injuries_by_fixture(fixture_id):
 def get_lineup_players(fixture_id, api_key):
     import requests
 
+    headers = {"X-RapidAPI-Key": api_key}
     url = f"https://v3.football.api-sports.io/fixtures/lineups?fixture={fixture_id}"
-    headers = { "x-apisports-key": api_key }
     response = requests.get(url, headers=headers)
+    data = response.json()
 
-    if response.status_code != 200:
-        print(f"⚠️ Erreur lineup pour fixture {fixture_id} : {response.status_code}")
+    if "response" not in data or not data["response"]:
+        print(f"❌ Aucun lineup trouvé pour le match {fixture_id}")
         return []
 
-    data = response.json()
-    players = []
+    lineup_players = []
 
-    for team in data.get("response", []):
-        team_id = team["team"]["id"]
+    for team in data["response"]:
+        team_name = team.get("team", {}).get("name", "Inconnu")
+        print(f"🧠 Traitement du lineup pour l’équipe : {team_name}")
+        if "startXI" not in team:
+            print(f"⚠️ Clé 'startXI' absente pour l’équipe {team_name} | Données reçues : {team}")
+            continue
 
         for player in team["startXI"]:
-            players.append({
-                "id": player["player"]["id"],
-                "name": player["player"]["name"],
-                "team_id": team_id,
-                "minutes": player["player"].get("minutes", 90),
-                "type": "starter"
+            player_info = player.get("player", {})
+            player_id = player_info.get("id")
+
+            if not player_id:
+                print(f"⚠️ Joueur sans ID dans le lineup pour {team_name} : {player_info}")
+                continue
+
+            lineup_players.append({
+                "id": player_id,
+                "name": player_info.get("name"),
+                "team_id": team.get("team", {}).get("id"),
+                "fixture_id": fixture_id
             })
 
-        for sub in team.get("substitutes", []):
-            players.append({
-                "id": sub["player"]["id"],
-                "name": sub["player"]["name"],
-                "team_id": team_id,
-                "minutes": sub["player"].get("minutes", 0),
-                "type": "sub"
-            })
+    return lineup_players
 
-    # --- Ajout traitement des absents ---
-    injuries = get_injuries_by_fixture(fixture_id)
 
-    for injury in injuries:
-        player_id = injury["player"]["id"]
-        team_id = injury["team"]["id"]
-        status_type = injury.get("type", "").lower()
-
-        if status_type == "injury":
-            status = "injured"
-        elif status_type == "suspension":
-            status = "suspended"
-        else:
-            status = "absent"
-
-        insert_player_presence(fixture_id, player_id, team_id, status)
-        print(f"🚑 Absence détectée : joueur {player_id}, status = {status}")
-
-    return players
 
 
 def player_has_event(fixture_events, player_id):
@@ -412,7 +397,7 @@ def insert_fixture(data, season_str, verbose=True):
                 fixture_id,
                 player["id"],
                 player["team_id"],
-                player["minutes"]
+                player.get("minutes", 0)
             )
 
 

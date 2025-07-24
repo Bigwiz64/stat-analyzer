@@ -14,7 +14,9 @@ from .data_access import (
     get_team_half_time_goal_avg,
     get_team_half_time_goal_ratio,
     get_player_team_id,
-    get_upcoming_fixtures_in_league
+    get_upcoming_fixtures_in_league,
+    get_team_total_goals_avg,
+    get_goals_distribution_by_interval
 )
 from app.utils import convert_utc_to_local
 import sqlite3
@@ -999,3 +1001,19 @@ def get_team_season_stats(team_id):
     print(f"📤 Statistiques renvoyées pour l'équipe {team_id} ({location}, saison {season}) : {result}")
     return jsonify(result)
 
+@main.route("/team/<int:team_id>/season_stat/total_goals_avg")
+def get_season_total_goals_avg(team_id):
+    location = request.args.get("location", "")
+    season = request.args.get("season")
+
+    avg = get_team_total_goals_avg(team_id, season, location)  # 🧠 à créer si besoin
+    return jsonify({"ratio": round(avg, 2)})
+
+@main.route("/team/<int:team_id>/goals_by_interval")
+def get_goals_by_interval(team_id):
+
+    location = request.args.get("location", "")
+    season = request.args.get("season")
+
+    data = get_goals_distribution_by_interval(team_id, location, season)
+    return jsonify(data)

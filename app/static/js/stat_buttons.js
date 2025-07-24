@@ -10,6 +10,9 @@ document.addEventListener("DOMContentLoaded", () => {
       { label: "X1", cut: 1, filter: "" },
       { label: "X2", cut: 2, filter: "" }
     ],
+    decisif: [
+      { label: "X1", cut: 1, filter: "decisive" }
+    ],
     intervalle: [
       { label: "0-15", cut: 1, filter: "0-15" },
       { label: "15-30", cut: 1, filter: "15-30" },

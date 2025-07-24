@@ -317,6 +317,44 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
                         print(f"⚠️ Erreur parsing intervalle {filter_type} :", e)
                     continue
 
+        elif filter_type == "decisive":
+            print(f"➡️ [DEBUG] Bloc DÉCISIF (but OU passe décisive)")
+            base_query = """
+                SELECT f.id, DATE(f.date), f.home_goals, f.away_goals, ps.goals, ps.assists, ps.minutes
+                FROM fixtures f
+                JOIN player_stats ps ON ps.fixture_id = f.id
+                WHERE ps.player_id = ?
+            """
+            params = [player_id]
+            if league_id:
+                base_query += " AND f.league_id = ?"
+                params.append(league_id)
+            base_query += " ORDER BY f.date DESC LIMIT ?"
+            params.append(limit)
+
+            cursor.execute(base_query, params)
+            rows = cursor.fetchall()
+            results = []
+
+            for row in rows:
+                fixture_id, date, home_goals, away_goals, goals, assists, minutes_played = row
+                stat_total = (goals or 0) + (assists or 0)
+                value_to_use = stat_total if stat_total > 0 else 0.1
+                print(f"📊 [DEBUG] Fixture {fixture_id} | Buts: {goals} | Passes: {assists} | Total décisif: {stat_total}")
+
+                results.append({
+                    "fixture_id": fixture_id,
+                    "date": date,
+                    "value": value_to_use,
+                    "minute": None,
+                    "minutes": minutes_played or 0,
+                    "score": f"{home_goals}-{away_goals}",
+                    "status": "none" if stat_total < 1 else None,
+                    "has_goal_but_not_first_half": False
+                })
+
+            return results
+
         else:
             print(f"➡️ [DEBUG] Bloc ELSE (X1 / X2 / autres stats) | Filter Type: {filter_type}")
             base_query = f"""
@@ -331,7 +369,6 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
                 base_query += " AND f.league_id = ?"
                 params.append(league_id)
 
-            # 🔁 Filtres DOM / EXT
             if filter_type == "home":
                 base_query += " AND f.home_team_id = ps.team_id"
             elif filter_type == "away":
@@ -345,38 +382,31 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
             results = []
 
             for fixture_id, date, home_goals, away_goals in recent_matches:
-                cursor.execute("""
-                    SELECT goals, minutes
+                cursor.execute(f"""
+                    SELECT {stat}, minutes
                     FROM player_stats
                     WHERE player_id = ? AND fixture_id = ?
                     LIMIT 1
                 """, (player_id, fixture_id))
                 stat_row = cursor.fetchone()
-                total_goals = stat_row[0] if stat_row and stat_row[0] is not None else 0
+                stat_value = stat_row[0] if stat_row and stat_row[0] is not None else 0
                 minutes_played = stat_row[1] if stat_row and stat_row[1] is not None else 0
 
-                print(f"➡️ [DEBUG] Fixture {fixture_id} | Total Goals: {total_goals} | Filter Type: {filter_type}")
+                print(f"➡️ [DEBUG] Fixture {fixture_id} | {stat} = {stat_value} | Filter Type: {filter_type}")
 
                 if stat == "goals" and (filter_type is None or filter_type == ""):
-                    print(f"✅ [DEBUG] Cas X2 détecté | Fixture: {fixture_id} | Total Goals: {total_goals}")
-                    if total_goals >= 2:
-                        value_to_use = total_goals
-                        has_goal_but_not_first_half = False
-                    elif total_goals == 1:
-                        value_to_use = 1
-                        has_goal_but_not_first_half = True
-                    else:
-                        value_to_use = 0.1
-                        has_goal_but_not_first_half = False
+                    print(f"✅ [DEBUG] Cas X2 détecté | Fixture: {fixture_id} | Total Goals: {stat_value}")
+                    value_to_use = stat_value if stat_value >= 2 else (1 if stat_value == 1 else 0.1)
+                    has_goal_but_not_first_half = stat_value == 1
 
                 elif stat == "goals" and filter_type == "goals":
-                    print(f"✅ [DEBUG] Cas X1 détecté | Fixture: {fixture_id} | Total Goals: {total_goals}")
-                    value_to_use = total_goals if total_goals > 0 else 0.1
+                    print(f"✅ [DEBUG] Cas X1 détecté | Fixture: {fixture_id} | Total Goals: {stat_value}")
+                    value_to_use = stat_value if stat_value > 0 else 0.1
                     has_goal_but_not_first_half = False
 
                 else:
-                    print(f"✅ [DEBUG] Cas Autres stats détecté | Fixture: {fixture_id} | Total Goals: {total_goals}")
-                    value_to_use = total_goals if total_goals > 0 else 0.1
+                    print(f"✅ [DEBUG] Cas Autres stats détecté | Fixture: {fixture_id} | {stat}: {stat_value}")
+                    value_to_use = stat_value if stat_value > 0 else 0.1
                     has_goal_but_not_first_half = False
 
                 results.append({
@@ -399,6 +429,7 @@ def get_player_match_stats(player_id, stat="goals", limit=10, filter_type=None, 
 
         print(f"✅ [DEBUG] Total résultats après nettoyage: {len(unique_results)}")
         return list(unique_results.values())
+
 
 
 
@@ -1374,3 +1405,101 @@ def get_upcoming_fixtures_in_league(league_id, exclude_fixture_id, limit=10):
         })
 
     return upcoming
+
+def get_team_total_goals_avg(team_id, season, location=""):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT f.home_team_id, f.away_team_id, f.home_goals, f.away_goals
+            FROM fixtures f
+            WHERE (f.home_team_id = ? OR f.away_team_id = ?)
+              AND f.season = ?
+              AND f.home_goals IS NOT NULL AND f.away_goals IS NOT NULL
+        """
+        params = [team_id, team_id, season]
+
+        if location == "home":
+            query += " AND f.home_team_id = ?"
+            params.append(team_id)
+        elif location == "away":
+            query += " AND f.away_team_id = ?"
+            params.append(team_id)
+
+        rows = cursor.execute(query, params).fetchall()
+
+        if not rows:
+            return 0.0
+
+        total = 0
+        for row in rows:
+            _, _, home_goals, away_goals = row
+            total += home_goals + away_goals
+
+        return total / len(rows)
+
+def get_goals_distribution_by_interval(team_id, location, season):
+
+    DB_PATH = get_db_path()
+
+    intervals = [
+        (0, 15), (16, 30), (31, 45), (46, 60), (61, 75), (76, 90)
+    ]
+    result = {f"{start}-{end}": {"for": 0, "against": 0} for start, end in intervals}
+
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+
+        for start, end in intervals:
+            # 🔍 Buts marqués par cette équipe
+            query_for = """
+                SELECT COUNT(*)
+                FROM fixture_events e
+                JOIN fixtures f ON f.id = e.fixture_id
+                WHERE e.type = 'Goal'
+                  AND e.team_id = ?
+                  AND f.season = ?
+                  AND e.elapsed BETWEEN ? AND ?
+            """
+            params_for = [team_id, season, start, end]
+
+            if location == "home":
+                query_for += " AND f.home_team_id = ?"
+                params_for.append(team_id)
+            elif location == "away":
+                query_for += " AND f.away_team_id = ?"
+                params_for.append(team_id)
+
+            cursor.execute(query_for, params_for)
+            goals_for = cursor.fetchone()[0] or 0
+
+            # 🔍 Buts encaissés contre cette équipe
+            query_against = """
+                SELECT COUNT(*)
+                FROM fixture_events e
+                JOIN fixtures f ON f.id = e.fixture_id
+                WHERE e.type = 'Goal'
+                  AND f.season = ?
+                  AND e.elapsed BETWEEN ? AND ?
+                  AND (
+                        (f.home_team_id = ? AND e.team_id != ?)
+                     OR (f.away_team_id = ? AND e.team_id != ?)
+                  )
+            """
+            params_against = [season, start, end, team_id, team_id, team_id, team_id]
+
+            if location == "home":
+                query_against += " AND f.home_team_id = ?"
+                params_against.append(team_id)
+            elif location == "away":
+                query_against += " AND f.away_team_id = ?"
+                params_against.append(team_id)
+
+            cursor.execute(query_against, params_against)
+            goals_against = cursor.fetchone()[0] or 0
+
+            result[f"{start}-{end}"] = {
+                "for": goals_for,
+                "against": goals_against
+            }
+
+    return result

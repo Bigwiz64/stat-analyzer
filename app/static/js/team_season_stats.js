@@ -11,24 +11,17 @@ document.addEventListener("DOMContentLoaded", () => {
     "type-away": "Marqué"
   };
 
+  let currentIntervalTeam = "home";  // ✅ équipe sélectionnée pour les graphiques
+
   function setBar(barElement, value, label = null) {
     if (!barElement) return;
 
-    // Récupération du filtre actif (Marqué ou Encaissé)
     const isHome = barElement.id.includes("home");
     const typeKey = isHome ? "type-home" : "type-away";
-    const currentType = state[typeKey]; // "Marqué" ou "Encaissé"
+    const currentType = state[typeKey];
 
-    // Supprimer anciennes classes de couleur
     barElement.classList.remove("marquer", "encaisser");
-
-    // Ajouter la classe selon le type
-    if (currentType === "Marqué") {
-      barElement.classList.add("marquer");
-    } else {
-      barElement.classList.add("encaisser");
-    }
-
+    barElement.classList.add(currentType === "Marqué" ? "marquer" : "encaisser");
     barElement.style.opacity = "1";
     barElement.style.width = `${value}%`;
 
@@ -57,9 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const type = state["type-home"] === "Marqué" ? "for" : "against";
       fetch(`/team/${window.HOME_TEAM_ID}/goal_ratio?location=${loc}&type=${type}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
-        .then(data => {
-          setBar(homeBar, data.ratio);
-        });
+        .then(data => setBar(homeBar, data.ratio));
     }
 
     if (awayBar) {
@@ -67,9 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const type = state["type-away"] === "Marqué" ? "for" : "against";
       fetch(`/team/${window.AWAY_TEAM_ID}/goal_ratio?location=${loc}&type=${type}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
-        .then(data => {
-          setBar(awayBar, data.ratio);
-        });
+        .then(data => setBar(awayBar, data.ratio));
     }
   }
 
@@ -84,9 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .then(res => res.json())
         .then(data => {
           const avg = parseFloat(data.ratio);
-          const width = Math.min((avg / 3) * 100, 100);
-          const label = avg.toFixed(2).replace('.', ',');
-          setBar(homeAvgBar, width, label);
+          setBar(homeAvgBar, Math.min((avg / 3) * 100, 100), avg.toFixed(2).replace('.', ','));
         });
     }
 
@@ -97,9 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .then(res => res.json())
         .then(data => {
           const avg = parseFloat(data.ratio);
-          const width = Math.min((avg / 3) * 100, 100);
-          const label = avg.toFixed(2).replace('.', ',');
-          setBar(awayAvgBar, width, label);
+          setBar(awayAvgBar, Math.min((avg / 3) * 100, 100), avg.toFixed(2).replace('.', ','));
         });
     }
   }
@@ -117,17 +102,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (homeBar) {
       fetch(`/team/${window.HOME_TEAM_ID}/half_time_goal_ratio?location=${locHome}&type=${typeHome}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
-        .then(data => {
-          setBar(homeBar, data.ratio);
-        });
+        .then(data => setBar(homeBar, data.ratio));
     }
 
     if (awayBar) {
       fetch(`/team/${window.AWAY_TEAM_ID}/half_time_goal_ratio?location=${locAway}&type=${typeAway}&season=${window.CURRENT_SEASON}`)
         .then(res => res.json())
-        .then(data => {
-          setBar(awayBar, data.ratio);
-        });
+        .then(data => setBar(awayBar, data.ratio));
     }
   }
 
@@ -146,9 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .then(res => res.json())
         .then(data => {
           const avg = parseFloat(data.ratio);
-          const width = Math.min((avg / 2) * 100, 100);
-          const label = avg.toFixed(2).replace('.', ',');
-          setBar(homeBar, width, label);
+          setBar(homeBar, Math.min((avg / 2) * 100, 100), avg.toFixed(2).replace('.', ','));
         });
     }
 
@@ -157,9 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .then(res => res.json())
         .then(data => {
           const avg = parseFloat(data.ratio);
-          const width = Math.min((avg / 2) * 100, 100);
-          const label = avg.toFixed(2).replace('.', ',');
-          setBar(awayBar, width, label);
+          setBar(awayBar, Math.min((avg / 2) * 100, 100), avg.toFixed(2).replace('.', ','));
         });
     }
   }
@@ -182,7 +159,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateBars();
 
-  // 🔁 Filtres pour Statistique Saison
   const saisonGroup = document.querySelector('.filter-group-statsaison');
   let currentSaisonLocation = "";
 
@@ -199,40 +175,193 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateSeasonStatsBars() {
-  const seasonStats = [
-    { id: "over_1_5" },
-    { id: "over_2_5" },
-    { id: "over_3_5" },
-    { id: "btts" },
-    { id: "clean_sheet", type: "against" }
+    const stats = [
+      { id: "over_1_5" },
+      { id: "over_2_5" },
+      { id: "over_3_5" },
+      { id: "btts" },
+      { id: "clean_sheet", type: "against" },
+      { id: "total_goals_avg", type: "combined" }
+    ];
+
+    stats.forEach(stat => {
+      const suffix = stat.id;
+      const type = stat.type || "for";
+
+      const homeBar = document.getElementById(`home_${suffix}`);
+      const awayBar = document.getElementById(`away_${suffix}`);
+
+      if (suffix === "total_goals_avg") {
+        if (homeBar) {
+          homeBar.classList.add("season-home");
+          fetch(`/team/${window.HOME_TEAM_ID}/season_stat/total_goals_avg?location=${currentSaisonLocation}&season=${window.CURRENT_SEASON}`)
+            .then(res => res.json())
+            .then(data => {
+              const label = data.ratio.toFixed(2).replace('.', ',');
+              setBar(homeBar, Math.min((data.ratio / 5) * 100, 100), label);
+            });
+        }
+        if (awayBar) {
+          awayBar.classList.add("season-away");
+          fetch(`/team/${window.AWAY_TEAM_ID}/season_stat/total_goals_avg?location=${currentSaisonLocation}&season=${window.CURRENT_SEASON}`)
+            .then(res => res.json())
+            .then(data => {
+              const label = data.ratio.toFixed(2).replace('.', ',');
+              setBar(awayBar, Math.min((data.ratio / 5) * 100, 100), label);
+            });
+        }
+      } else {
+        if (homeBar) {
+          homeBar.classList.add("season-home");
+          fetch(`/team/${window.HOME_TEAM_ID}/season_stat?type=${suffix}&location=${currentSaisonLocation}&season=${window.CURRENT_SEASON}`)
+            .then(res => res.json())
+            .then(data => setBar(homeBar, data.ratio));
+        }
+        if (awayBar) {
+          awayBar.classList.add("season-away");
+          fetch(`/team/${window.AWAY_TEAM_ID}/season_stat?type=${suffix}&location=${currentSaisonLocation}&season=${window.CURRENT_SEASON}`)
+            .then(res => res.json())
+            .then(data => setBar(awayBar, data.ratio));
+        }
+      }
+    });
+  }
+
+  updateSeasonStatsBars();
+  loadAllIntervalCharts();
+
+  document.getElementById("chart_home").closest(".chart-container").style.display = "block";
+  document.getElementById("chart_away").closest(".chart-container").style.display = "none";
+
+  function loadAllIntervalCharts() {
+  const selectedIsHome = currentIntervalTeam === "home";
+  const teamId = selectedIsHome ? window.HOME_TEAM_ID : window.AWAY_TEAM_ID;
+  const opponentId = selectedIsHome ? window.AWAY_TEAM_ID : window.HOME_TEAM_ID;
+
+  const teamName = selectedIsHome ? window.HOME_TEAM_NAME : window.AWAY_TEAM_NAME;
+  const opponentName = selectedIsHome ? window.AWAY_TEAM_NAME : window.HOME_TEAM_NAME;
+
+  const chartConfigs = [
+    { canvasId: "chart_all", teamLoc: "", opponentLoc: "" },
+    { canvasId: "chart_home", teamLoc: "home", opponentLoc: "away" },
+    { canvasId: "chart_away", teamLoc: "away", opponentLoc: "home" },
   ];
 
-  seasonStats.forEach(stat => {
-    const suffix = stat.id;
-    const type = stat.type || "for";
+  chartConfigs.forEach(config => {
+    const canvas = document.getElementById(config.canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    const homeBar = document.getElementById(`home_${suffix}`);
-    const awayBar = document.getElementById(`away_${suffix}`);
+    Promise.all([
+      fetch(`/team/${teamId}/goals_by_interval?location=${config.teamLoc}&season=${window.CURRENT_SEASON}`).then(res => res.json()),
+      fetch(`/team/${opponentId}/goals_by_interval?location=${config.opponentLoc}&season=${window.CURRENT_SEASON}`).then(res => res.json())
+    ])
+    .then(([forData, againstData]) => {
+      const labels = Object.keys(forData);
+      const goalsFor = labels.map(k => forData[k]["for"]);
+      const goalsAgainst = labels.map(k => againstData[k]["against"]);
 
-    if (homeBar) {
-      homeBar.classList.add("season-home");  // 🔵 Couleur bleue pour home
-      fetch(`/team/${window.HOME_TEAM_ID}/season_stat?type=${suffix}&location=${currentSaisonLocation}&season=${window.CURRENT_SEASON}`)
-        .then(res => res.json())
-        .then(data => {
-          setBar(homeBar, data.ratio);
-        });
-    }
+      if (canvas.chart && typeof canvas.chart.destroy === "function") {
+        canvas.chart.destroy();
+      }
 
-    if (awayBar) {
-      awayBar.classList.add("season-away");  // 🟠 Couleur orange pour away
-      fetch(`/team/${window.AWAY_TEAM_ID}/season_stat?type=${suffix}&location=${currentSaisonLocation}&season=${window.CURRENT_SEASON}`)
-        .then(res => res.json())
-        .then(data => {
-          setBar(awayBar, data.ratio);
-        });
-    }
+      canvas.chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: `Buts marqués ${teamName}`,
+              data: goalsFor,
+              backgroundColor: context => {
+                const value = context.raw;
+                if (value <= 1) return "#4DFF62";
+                if (value <= 3) return "#04C71B";
+                if (value <= 5) return "#48A527";
+                if (value <= 7) return "#35811D";
+                if (value <= 9) return "#005201";
+                return "#003300";
+              }
+            },
+            {
+              label: `Buts encaissés ${opponentName}`,
+              data: goalsAgainst,
+              backgroundColor: context => {
+                const value = context.raw;
+                if (value <= 1) return "#E97B7B";
+                if (value <= 3) return "#E3504F";
+                if (value <= 5) return "#C61F1F";
+                if (value <= 7) return "#B11B1B";
+                if (value <= 9) return "#841616";
+                return "#C62828";
+              }
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              display: false // ✅ on désactive la légende interne
+            },
+            title: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 }
+            }
+          }
+        }
+      });
+
+      // 🔽 Créer la légende personnalisée juste après le canvas
+      const legendHtml = `
+        <div class="legend-item">
+          <span class="legend-dot" style="background-color:#04C71B;"></span>
+          Buts marqués ${teamName}
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background-color:#C62828;"></span>
+          Buts encaissés ${opponentName}
+        </div>
+      `;
+      const legendContainer = document.getElementById(`legend_${config.canvasId}`);
+      if (legendContainer) {
+        legendContainer.innerHTML = legendHtml;
+      }
+    })
+    .catch(err => console.error(`Erreur chart ${config.canvasId} :`, err));
   });
 }
 
-  updateSeasonStatsBars();
+
+
+  document.querySelectorAll(".interval-team-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".interval-team-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    currentIntervalTeam = btn.dataset.team;
+    loadAllIntervalCharts();
+
+    // Affichage conditionnel des blocs
+    const chartAll = document.getElementById("chart_all").closest(".chart-container");
+    const chartHome = document.getElementById("chart_home").closest(".chart-container");
+    const chartAway = document.getElementById("chart_away").closest(".chart-container");
+
+    if (currentIntervalTeam === "home") {
+      chartAll.style.display = "block";
+      chartHome.style.display = "block";
+      chartAway.style.display = "none";
+    } else {
+      chartAll.style.display = "block";
+      chartHome.style.display = "none";
+      chartAway.style.display = "block";
+    }
+  });
+});
+
+
 });
