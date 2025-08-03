@@ -139,12 +139,12 @@ def get_season_from_date(date_str, league_id):
     date_obj = datetime.strptime(date_str[:10], "%Y-%m-%d")
     year = date_obj.year
     month = date_obj.month
-    if league_id in [103, 113, 244, 119, 292, 253, 169, 98, 164, 71]:  # Norvège, Suède, Finlande, Danemark, Corée, MLS, Chine, Japon, Islande
+    if league_id in [103, 113, 244, 119, 292, 253, 169, 98, 164, 71, 239]:  # Norvège, Suède, Finlande, Danemark, Corée, MLS, Chine, Japon, Islande, Colombi
         return year
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    71
+    169
 ]
 
 SEASON_BY_LEAGUE = {
@@ -157,8 +157,8 @@ SEASON_BY_LEAGUE = {
 }
 
 DEFAULT_SEASON = 2024
-FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-03-15"
-TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-08-01"
+FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-07-20"
+TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-09-01"
 MODE = sys.argv[3] if len(sys.argv) > 3 else "complet"
 
 def insert_player_stats(fixture_id, season_str):

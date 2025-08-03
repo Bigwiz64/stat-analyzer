@@ -2497,3 +2497,39 @@ body.chart-visible .player-list-block {
   border-radius: 50%;
   display: inline-block;
 }
+
+.tab-menu {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 10px 16px;
+  background-color: #516079;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.tab-btn:hover {
+  background-color: #F1895C;
+}
+
+.tab-btn.active {
+  background-color: #F1895C;
+  color: #fff;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
