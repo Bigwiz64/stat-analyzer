@@ -129,9 +129,10 @@ def get_match_with_cumulative_player_stats(fixture_id):
             JOIN players p ON ps.player_id = p.id
             JOIN fixtures f ON ps.fixture_id = f.id
             WHERE datetime(f.date) < datetime(?)
+              AND f.season = ?
               AND (ps.team_id = ? OR ps.team_id = ?)
             GROUP BY ps.player_id
-        """, (match_date, home_team_id, away_team_id))
+        """, (match_date, season, home_team_id, away_team_id))
 
         stats = cursor.fetchall()
 
