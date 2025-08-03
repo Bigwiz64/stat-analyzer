@@ -7,7 +7,19 @@ function loadChartConfig(playerId, matchId) {
 
   if (isNaN(limit) || limit < 1) limit = 5;
 
-  fetch(`/player/${playerId}/history?stat=${stat}&limit=${limit}&filter=${filter}&cut=${cut}&fixture_id=${matchId}`)
+  // 🟦 Récupération de la saison en cours (valeur injectée côté Flask)
+  const currentSeason = window.CURRENT_SEASON;
+
+  // 🟨 Détecter la carte active (Last 5, Dom, Ext, H2H, etc.)
+  const selectedCard = document.querySelector(".performance-card.active");
+  let seasonFilter = currentSeason;
+
+  if (selectedCard && selectedCard.textContent.includes("H2H")) {
+    seasonFilter = "";  // ⛔ Pas de filtre saison si H2H
+  }
+
+  // ✅ Appel fetch avec ajout du paramètre season
+  fetch(`/player/${playerId}/history?stat=${stat}&limit=${limit}&filter=${filter}&cut=${cut}&fixture_id=${matchId}&season=${seasonFilter}`)
     .then(res => res.json())
     .then(data => {
       if (window.chartInstance) {
@@ -159,6 +171,14 @@ function loadChartConfig(playerId, matchId) {
             window.loadChartConfig(playerId, matchId);
           });
         }
+
+        if (card.label === "H2H") {
+          div.addEventListener("click", () => {
+            document.getElementById("filter").value = "h2h_only";
+            window.loadChartConfig(playerId, matchId);
+          });
+        }
+
 
         // 💡 Ajout dynamique des classes highlight et blurred
         if ((playerLocation === "home" && card.label === "Dom") ||

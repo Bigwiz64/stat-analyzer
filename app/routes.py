@@ -599,6 +599,7 @@ def player_stat_history(player_id):
     filter_type = request.args.get("filter", "")
     cut = int(request.args.get("cut", 1))
     fixture_id = request.args.get("fixture_id", type=int)
+    season_filter = request.args.get("season")  # Nouvelle ligne
 
     try:
         def count_hits(data):
@@ -625,15 +626,13 @@ def player_stat_history(player_id):
             return jsonify({"error": "Fixture introuvable"}), 404
         league_id = match["league_id"]
 
-        # Historique principal
         if filter_type == "home_only":
-            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type="home", league_id=league_id)
+            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type="home", league_id=league_id, season=season_filter)
         elif filter_type == "away_only":
-            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type="away", league_id=league_id)
+            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type="away", league_id=league_id, season=season_filter)
         else:
-            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type, league_id=league_id)
+            history_dynamic = get_player_match_stats(player_id, stat, limit, filter_type, league_id=league_id, season=season_filter)
 
-        # Marquer les 0 comme 0.1 si joueur a joué
         for item in history_dynamic:
             if item.get("value") == 0 and item.get("minutes", 0) > 0:
                 item["value"] = 0.1
@@ -653,7 +652,6 @@ def player_stat_history(player_id):
             if fixture_ids:
                 placeholders = ",".join("?" for _ in fixture_ids)
 
-                # Home/Away ID
                 cursor.execute(f"""
                     SELECT f.id, f.home_team_id, f.away_team_id
                     FROM fixtures f
@@ -666,7 +664,6 @@ def player_stat_history(player_id):
                         "player_team_id": None
                     }
 
-                # Score + noms
                 cursor.execute(f"""
                     SELECT f.id, f.date, f.home_goals, f.away_goals, t1.name, t2.name
                     FROM fixtures f
@@ -678,13 +675,11 @@ def player_stat_history(player_id):
                     date_map[fid] = date_str
                     score_map[fid] = f"{home_name} {hg} - {ag} {away_name}" if hg is not None and ag is not None else ""
 
-        # 🧲 Récupération du team_id par fallback
         for fid in fixture_ids:
             team_id = get_player_team_id(fid, player_id)
             if fid in team_info_map:
                 team_info_map[fid]["player_team_id"] = team_id
 
-        # Ajout des absences à l'historique
         existing_ids = {m["fixture_id"] for m in history_dynamic}
         for fid in absent_ids:
             if fid not in existing_ids:
@@ -700,7 +695,6 @@ def player_stat_history(player_id):
                     "score": score_map.get(fid, "")
                 })
 
-        # Ajout infos aux lignes
         for match_item in history_dynamic:
             fid = match_item["fixture_id"]
             info = team_info_map.get(fid, {})
@@ -727,10 +721,9 @@ def player_stat_history(player_id):
             reverse=True
         )
 
-        # 📊 Statistiques
-        history_5 = get_player_match_stats(player_id, stat, 5, filter_type, league_id=league_id)
-        history_10 = get_player_match_stats(player_id, stat, 10, filter_type, league_id=league_id)
-        history_20 = get_player_match_stats(player_id, stat, 20, filter_type, league_id=league_id)
+        history_5 = get_player_match_stats(player_id, stat, 5, filter_type, league_id=league_id, season=season_filter)
+        history_10 = get_player_match_stats(player_id, stat, 10, filter_type, league_id=league_id, season=season_filter)
+        history_20 = get_player_match_stats(player_id, stat, 20, filter_type, league_id=league_id, season=season_filter)
         all_stats = get_player_match_stats(player_id, stat, 1000, filter_type, league_id=league_id)
 
         with sqlite3.connect(DB_PATH) as conn:
@@ -746,7 +739,6 @@ def player_stat_history(player_id):
 
         player_fixture_ids = {m[0] for m in all_matches}
 
-        # 🧠 H2H / Localisation
         player_team_id, match_dict, h2h_opponent_id = None, None, None
         for m in all_matches:
             if int(m[0]) == fixture_id:
@@ -755,7 +747,6 @@ def player_stat_history(player_id):
                 h2h_opponent_id = m[2] if m[3] == player_team_id else m[3]
                 break
 
-        # 🔄 Fallback team_id
         if not player_team_id:
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
@@ -778,7 +769,6 @@ def player_stat_history(player_id):
                 "away_team_id": match.get("away_team_id")
             }
 
-        # 🧭 Calcul player_location
         print(f"🧪 DEBUG avant calcul player_location | player_team_id = {player_team_id} | match_dict = {match_dict}")
         player_location = None
         if match_dict and player_team_id:
@@ -789,7 +779,6 @@ def player_stat_history(player_id):
 
         print(f"📍 player_location = {player_location}")
 
-        # 📊 Calculs filtres
         h2h_ids = {m[0] for m in all_matches if (m[2] == h2h_opponent_id or m[3] == h2h_opponent_id)}
         h2h_stats = [s for s in all_stats if s["fixture_id"] in h2h_ids]
         home_ids = [m[0] for m in all_matches if m[2] == m[4]]

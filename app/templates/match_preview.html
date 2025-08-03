@@ -406,6 +406,10 @@
   window.CURRENT_SEASON = {{ season | tojson }};
 </script>
 
+<script>
+  console.log("DEBUG MATCH ID = ", window.MATCH_ID);
+</script>
+
 
 <script src="{{ url_for('static', filename='js/initPlayerPanel.js') }}"></script>
 <script src="{{ url_for('static', filename='js/goal_series_loader.js') }}"></script>
