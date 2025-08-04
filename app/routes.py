@@ -347,6 +347,90 @@ def match_detail(fixture_id):
 
 
 
+@main.route("/match/<int:fixture_id>/stats")
+def match_stats_api(fixture_id):
+
+    # Paramètres GET
+    side = request.args.get("side", "overall")
+    stat = request.args.get("stat", "minutes")
+    cut = request.args.get("cut", "")
+    page = int(request.args.get("page", 1))
+    sort_by = request.args.get("sort_by", "minutes")
+    sort_order = request.args.get("sort_order", "desc")
+
+    offset = (page - 1) * 10
+    limit = 10
+
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+
+        # Construction de la requête SQL
+        base_query = f"""
+            SELECT p.name, ps.team_id, ps.minutes, ps.goals, ps.assists,
+                   ps.shots_total, ps.shots_on_target, ps.penalty_scored,
+                   ps.penalty_missed, ps.yellow_cards, ps.red_cards,
+                   ps.xg, ps.xa, t.name, t.logo
+            FROM player_stats ps
+            JOIN players p ON ps.player_id = p.id
+            JOIN teams t ON ps.team_id = t.id
+            WHERE ps.fixture_id = ?
+        """
+
+        # Filtrage home / away
+        if side == "home":
+            cursor.execute("SELECT home_team_id FROM fixtures WHERE id = ?", (fixture_id,))
+            team_id = cursor.fetchone()[0]
+            base_query += f" AND ps.team_id = {team_id}"
+        elif side == "away":
+            cursor.execute("SELECT away_team_id FROM fixtures WHERE id = ?", (fixture_id,))
+            team_id = cursor.fetchone()[0]
+            base_query += f" AND ps.team_id = {team_id}"
+
+        # Tri
+        allowed_sort_columns = [
+            "name", "minutes", "goals", "assists", "shots_total", "shots_on_target",
+            "penalty_scored", "penalty_missed", "yellow_cards", "red_cards", "xg", "xa"
+        ]
+        if sort_by not in allowed_sort_columns:
+            sort_by = "minutes"
+        order_clause = f"ORDER BY {sort_by} {sort_order.upper()}"
+
+        # Pagination
+        query = f"{base_query} {order_clause} LIMIT {limit + 1} OFFSET {offset}"
+
+        cursor.execute(query, (fixture_id,))
+        rows = cursor.fetchall()
+
+        players = []
+        for row in rows[:limit]:
+            players.append({
+                "name": row[0],
+                "team_id": row[1],
+                "minutes": row[2] or 0,
+                "goals": row[3] or 0,
+                "assists": row[4] or 0,
+                "shots_total": row[5] or 0,
+                "shots_on_target": row[6] or 0,
+                "penalty_scored": row[7] or 0,
+                "penalty_missed": row[8] or 0,
+                "yellow_cards": row[9] or 0,
+                "red_cards": row[10] or 0,
+                "xg": row[11] or 0,
+                "xa": row[12] or 0,
+                "team_name": row[13],
+                "team_logo": row[14],
+                "side": side
+            })
+
+        has_next = len(rows) > limit
+
+    return jsonify({
+        "players": players,
+        "page": page,
+        "has_next": has_next
+    })
+
+
 
 
 
@@ -511,77 +595,7 @@ def calendar():
 
     return render_template("calendar.html", matches=matches, dates=dates, selected_date=selected_date.strftime("%Y-%m-%d"))
 
-@main.route('/match/<int:fixture_id>/stats')
-def match_stats_api(fixture_id):
-    stat = request.args.get("stat", "goals")
-    cut = request.args.get("cut", type=int)
-    side_filter = request.args.get("side", "all")
-    page = request.args.get("page", default=1, type=int)
-    per_page = 10
 
-    sort_by = request.args.get("sort_by", "minutes")
-    sort_order = request.args.get("sort_order", "desc")
-
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT home_team_id, away_team_id FROM fixtures WHERE id = ?", (fixture_id,))
-        home_team_id, away_team_id = cursor.fetchone()
-
-        base_query = f"""
-            SELECT p.name, ps.team_id, ps.minutes, ps.goals, ps.assists,
-                   ps.shots_total, ps.shots_on_target,
-                   ps.penalty_scored, ps.penalty_missed,
-                   ps.yellow_cards, ps.red_cards,
-                   ps.xg, ps.xa,
-                   t.name, t.logo
-            FROM player_stats ps
-            JOIN players p ON ps.player_id = p.id
-            JOIN teams t ON ps.team_id = t.id
-            WHERE ps.fixture_id = ?
-        """
-
-        order_clause = f"ORDER BY ps.{sort_by} {sort_order.upper()}"
-        cursor.execute(base_query + order_clause, (fixture_id,))
-        all_player_stats = cursor.fetchall()
-
-    if side_filter == "home":
-        filtered_stats = [row for row in all_player_stats if row[1] == home_team_id]
-    elif side_filter == "away":
-        filtered_stats = [row for row in all_player_stats if row[1] == away_team_id]
-    else:
-        filtered_stats = all_player_stats
-
-    total_players = len(filtered_stats)
-    start = (page - 1) * per_page
-    end = start + per_page
-    paginated_stats = filtered_stats[start:end]
-    has_next = end < total_players
-
-    players = [{
-        "name": row[0],
-        "team_id": row[1],
-        "minutes": row[2] or 0,
-        "goals": row[3] or 0,
-        "assists": row[4] or 0,
-        "shots_total": row[5] or 0,
-        "shots_on_target": row[6] or 0,
-        "penalty_scored": row[7] or 0,
-        "penalty_missed": row[8] or 0,
-        "yellow_cards": row[9] or 0,
-        "red_cards": row[10] or 0,
-        "xg": round(row[11] or 0, 2),
-        "xa": round(row[12] or 0, 2),
-        "team_name": row[13],
-        "team_logo": row[14],
-        "side": "home" if row[1] == home_team_id else "away"
-    } for row in paginated_stats]
-
-    return {
-        "players": players,
-        "has_next": has_next,
-        "page": page
-    }
 
 @main.route('/player/<int:player_id>/history')
 def player_stat_history(player_id):
