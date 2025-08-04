@@ -231,30 +231,36 @@ def match_preview(fixture_id):
 
 @main.route('/match/<int:fixture_id>')
 def match_detail(fixture_id):
+    from flask import request, render_template
+    import sqlite3
+
     stat = request.args.get("stat", "goals")
     cut = request.args.get("cut", type=int)
     side_filter = request.args.get("side", "overall")
     page = request.args.get("page", default=1, type=int)
     per_page = 10
 
-    match = get_match_with_player_stats(fixture_id)
-    if not match:
-        return render_template("match_detail.html", match=None, message="⚠️ Match non trouvé.")
+    match_data = get_match_with_player_stats(fixture_id)
 
+    if not match_data:
+        return render_template("match_detail.html", match=None, message="❌ Match non trouvé")
+
+    # Connexion pour récupérer logos et arbitre
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT home_team_id, away_team_id FROM fixtures WHERE id = ?", (fixture_id,))
-        home_team_id, away_team_id = cursor.fetchone()
-
-        cursor.execute("SELECT logo FROM teams WHERE id = ?", (home_team_id,))
+        # Logos équipes
+        cursor.execute("SELECT logo FROM teams WHERE id = ?", (match_data["home_team_id"],))
         home_team_logo = cursor.fetchone()[0]
-        cursor.execute("SELECT logo FROM teams WHERE id = ?", (away_team_id,))
+
+        cursor.execute("SELECT logo FROM teams WHERE id = ?", (match_data["away_team_id"],))
         away_team_logo = cursor.fetchone()[0]
 
+        # Arbitre
         cursor.execute("SELECT referee FROM fixtures WHERE id = ?", (fixture_id,))
         referee = (cursor.fetchone() or [None])[0]
 
+        # Tous les événements du match
         cursor.execute("""
             SELECT e.elapsed, e.extra, p_in.name AS player_in, p_out.name AS player_out,
                    e.type, e.detail, e.comments, e.team_id
@@ -266,93 +272,80 @@ def match_detail(fixture_id):
         """, (fixture_id,))
         raw_events = cursor.fetchall()
 
-        cursor.execute("""
-            SELECT p.name, ps.team_id, ps.minutes, ps.goals, ps.assists,
-                   ps.shots_total, ps.shots_on_target,
-                   ps.penalty_scored, ps.penalty_missed,
-                   ps.yellow_cards, ps.red_cards,
-                   ps.xg, ps.xa,
-                   t.name, t.logo
-            FROM player_stats ps
-            JOIN players p ON ps.player_id = p.id
-            JOIN teams t ON ps.team_id = t.id
-            WHERE ps.fixture_id = ?
-            ORDER BY ps.minutes DESC
-        """, (fixture_id,))
-        all_player_stats = cursor.fetchall()
-
-    if side_filter == "home":
-        filtered_stats = [row for row in all_player_stats if row[1] == home_team_id]
-    elif side_filter == "away":
-        filtered_stats = [row for row in all_player_stats if row[1] == away_team_id]
-    else:
-        filtered_stats = all_player_stats
-
-    total_players = len(filtered_stats)
-    start = (page - 1) * per_page
-    end = start + per_page
-    paginated_stats = filtered_stats[start:end]
-    total_pages = (total_players + per_page - 1) // per_page
-
+    # Formatage des événements
     events = []
     score_home = score_away = 0
     for e in raw_events:
-       elapsed = int(e[0] or 0)  # e[0] = elapsed
-       extra = int(e[1] or 0)    # e[1] = extra
+        elapsed = int(e[0] or 0)
+        extra = int(e[1] or 0)
+        display_minute = f"{elapsed}+{extra}" if extra > 0 else f"{elapsed}"
 
-       # 🕒 Format affiché (ex : 45+2)
-       display_minute = f"{elapsed}+{extra}" if extra > 0 else f"{elapsed}"
+        minute_int = elapsed if elapsed < 45 else (elapsed + extra)
 
-       # 🧠 minute_int utilisé pour séparer 1re et 2e MT (ex : tri, regroupement)
-       if elapsed < 45:
-           minute_int = elapsed  # 1re MT
-       elif elapsed == 45 and extra <= 7:
-           minute_int = 45       # 1re MT (temps additionnel acceptable)
-       else:
-           minute_int = elapsed + extra  # 2e MT
+        side = "home" if e[7] == match_data["home_team_id"] else "away"
+        score_after = ""
 
-       side = "home" if e[7] == home_team_id else "away"
-       score_after = ""
+        if e[4].lower() == "goal":
+            if side == "home":
+                score_home += 1
+            else:
+                score_away += 1
+            score_after = f"{score_home}-{score_away}"
 
-       if e[4].lower() == "goal":
-           if side == "home":
-               score_home += 1
-           else:
-               score_away += 1
-           score_after = f"{score_home}-{score_away}"
-
-       events.append({
-           "minute": f"{display_minute}'",
-           "minute_int": minute_int,
-           "side": side,
-           "type": e[4].lower(),
-           "detail": e[5] or "",
-           "player": e[2] or "?",
-           "assist": e[3] or "",
-           "player_in": e[2] or "?",
-           "player_out": e[3] or "",
-           "comments": f"({e[6]})" if e[6] else "",
-           "score_after": score_after
-       })
-
+        events.append({
+            "minute": f"{display_minute}'",
+            "minute_int": minute_int,
+            "side": side,
+            "type": e[4].lower(),
+            "detail": e[5] or "",
+            "player": e[2] or "?",
+            "assist": e[3] or "",
+            "player_in": e[2] or "?",
+            "player_out": e[3] or "",
+            "comments": f"({e[6]})" if e[6] else "",
+            "score_after": score_after
+        })
 
     events.sort(key=lambda e: e["minute_int"])
+
+    # 🎯 Pagination des joueurs
+    all_stats = match_data["players"]
+    if side_filter == "home":
+        all_stats = [p for p in all_stats if p["team_id"] == match_data["home_team_id"]]
+    elif side_filter == "away":
+        all_stats = [p for p in all_stats if p["team_id"] == match_data["away_team_id"]]
+
+    total_players = len(all_stats)
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated_stats = all_stats[start:end]
+    total_pages = (total_players + per_page - 1) // per_page
     has_next = end < total_players
 
+    # ✅ Render de la page
     return render_template("match_detail.html",
-        match=match,
+        match=match_data,
         stat=stat,
         cut=cut,
         events=events,
         home_logo=home_team_logo,
         away_logo=away_team_logo,
         referee=referee,
-        player_stats=paginated_stats,
+        player_stats=[(
+            p["name"], p["team_id"], p["minutes"], p["goals"], p["assists"],
+            p.get("shots_total", 0), p.get("shots_on_target", 0),
+            p["penalty_scored"], p.get("penalty_missed", 0),
+            p["yellow_cards"], p["red_cards"],
+            p.get("xg", 0), p.get("xa", 0),
+            "", ""  # team_name & team_logo si nécessaires
+        ) for p in paginated_stats],
         side_filter=side_filter,
         page=page,
         total_pages=total_pages,
         has_next=has_next
     )
+
+
 
 
 

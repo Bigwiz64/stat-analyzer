@@ -603,7 +603,7 @@ def get_match_with_player_stats(fixture_id, player_id=None):
             "home_goals": match[7],
             "away_goals": match[8],
             "players": [],
-            "player_team_id": None  # 🔍 Ajout du champ ici
+            "player_team_id": None
         }
 
         print(f"📊 Traitement du match : {match_data['home_team']} vs {match_data['away_team']} (ID {fixture_id})")
@@ -628,7 +628,36 @@ def get_match_with_player_stats(fixture_id, player_id=None):
         print(f"👥 Joueurs avec stats récupérés : {len(stats)}")
 
         if not stats:
-            print("⚠️ Aucun joueur avec stats — retour données de base")
+            print("⚠️ Aucun joueur avec stats — fallback via events")
+
+            player_ids = set()
+            for e_player_id, e_assist_id, e_type, _ in events:
+                if e_player_id:
+                    player_ids.add(e_player_id)
+                if e_assist_id:
+                    player_ids.add(e_assist_id)
+
+            print(f"🔁 Fallback : {len(player_ids)} joueurs trouvés via events")
+
+            for pid in player_ids:
+                cursor.execute("SELECT id, name, position FROM players WHERE id = ?", (pid,))
+                row = cursor.fetchone()
+                if row:
+                    player = {
+                        "id": row[0],
+                        "name": row[1],
+                        "position": row[2],
+                        "position_abbr": get_position_abbr(row[2]),
+                        "minutes": 0,
+                        "team_id": None,
+                        "goals": 0,
+                        "assists": 0,
+                        "penalty_scored": 0,
+                        "yellow_cards": 0,
+                        "red_cards": 0
+                    }
+                    match_data["players"].append(player)
+                    match_data["home_players"].append(player)  # par défaut ici
             return match_data
 
         for row in stats:
@@ -647,7 +676,6 @@ def get_match_with_player_stats(fixture_id, player_id=None):
                 "red_cards": 0
             }
 
-            # ➕ Si c’est le joueur demandé, on stocke son équipe
             if player_id and player_id_row == player_id:
                 match_data["player_team_id"] = row[4]
 
@@ -659,8 +687,7 @@ def get_match_with_player_stats(fixture_id, player_id=None):
                             player["penalty_scored"] += 1
                     if e_assist_id == player_id_row:
                         player["assists"] += 1
-
-                if e_type == "Card" and e_player_id == player_id_row:
+                elif e_type == "Card" and e_player_id == player_id_row:
                     if e_detail == "Yellow Card":
                         player["yellow_cards"] += 1
                     elif e_detail == "Red Card":
@@ -677,7 +704,6 @@ def get_match_with_player_stats(fixture_id, player_id=None):
         print(f"✅ Joueurs extérieur : {len(match_data['away_players'])}")
         print(f"🏷️ player_team_id extrait : {match_data['player_team_id']}")
 
-        # 🔄 Fallback si player_team_id est toujours None
         if player_id and not match_data["player_team_id"]:
             print("🔍 Fallback via player_match_presence pour player_id =", player_id)
             cursor.execute("""
@@ -690,9 +716,9 @@ def get_match_with_player_stats(fixture_id, player_id=None):
                 print(f"✅ team_id trouvé via player_match_presence : {match_data['player_team_id']}")
             else:
                 print(f"❌ Aucun team_id trouvé pour player_id={player_id} dans match {fixture_id}")
-        
-        
-                return match_data
+
+        return match_data
+
 
     
 def repair_player_stats_from_events(fixture_id):

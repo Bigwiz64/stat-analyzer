@@ -144,7 +144,7 @@ def get_season_from_date(date_str, league_id):
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    169
+    103, 113, 244, 119, 292, 253, 169, 98, 164, 71, 239
 ]
 
 SEASON_BY_LEAGUE = {
