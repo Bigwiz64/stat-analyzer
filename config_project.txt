@@ -1,0 +1,169 @@
+# ============================
+# 🌐 PeakStat - Config Projet
+# ============================
+
+🎯 OBJECTIF
+Application web de statistiques sportives orientée football (extension future NBA/NHL), avec affichage des performances des joueurs/équipes, filtres dynamiques, comparateurs, tendances, graphiques, et à terme un accès public par abonnement.
+
+⚙️ STACK TECHNIQUE
+- Backend : Flask (Python)
+- Frontend : HTML, CSS, JavaScript (vanilla ou jQuery)
+- Graphiques : Chart.js
+- Base de données : SQLite (dev) → PostgreSQL (prod)
+- API utilisée : API-Sport.io (Plan Pro), plus tard peut etre un passage a sportmonks
+- UI/UX : sobre, minimaliste, glassmorphism léger, data-driven
+
+🗂️ GITHUB
+Repo principal : https://github.com/Bigwiz64/stat-analyzer
+
+Structure :
+- /app/
+   - routes.py → endpoints Flask
+   - data_access.py → fonctions de requête et calculs
+   - import_fixtures_2024.py → script d’import principal
+   - /templates/
+      - match_preview.html → page d’analyse des matchs
+      - match_detail.html → détails stats match
+   - /static/
+      - chart_config.js → configuration des graphiques
+      - player_panel.js → panneau stats joueurs
+      -style.css → design du site
+- config_project.txt (ce fichier)
+- requirements.txt
+- data_pipeline
+    - /fetch/
+      - import_fixtures_2024 → script principale d'import
+
+📌 BASE DE DONNÉES
+Table : teams
+   - id (INTEGER)
+   - name (TEXT)
+   - country (TEXT)
+   - logo (TEXT)
+   - league_id (INTEGER)
+   - season (INTEGER)
+
+🔸 Table : fixtures
+   - id (INTEGER)
+   - date (TEXT)
+   - league_id (INTEGER)
+   - home_team_id (INTEGER)
+   - away_team_id (INTEGER)
+   - home_goals (INTEGER)
+   - away_goals (INTEGER)
+   - referee (TEXT)
+   - season (INTEGER)
+   - home_goals_ht (INTEGER)
+   - away_goals_ht (INTEGER)
+   - round (TEXT)
+   - status (TEXT)
+
+🔸 Table : players
+   - id (INTEGER)
+   - name (TEXT)
+   - position (TEXT)
+   - age (INTEGER)
+   - country_flag (TEXT)
+   - team_id (INTEGER)
+   - fixture_id (INTEGER)
+   - firstname (TEXT)
+   - lastname (TEXT)
+   - country (TEXT)
+   - photo (TEXT)
+   - birth_date (TEXT)
+   - birth_place (TEXT)
+   - birth_country (TEXT)
+   - height (TEXT)
+   - weight (TEXT)
+   - rating (TEXT)
+   - injured (BOOLEAN)
+
+🔸 Table : player_stats
+   - id (INTEGER)
+   - fixture_id (INTEGER)
+   - player_id (INTEGER)
+   - team_id (INTEGER)
+   - goals (INTEGER)
+   - assists (INTEGER)
+   - yellow_cards (INTEGER)
+   - red_cards (INTEGER)
+   - minutes (INTEGER)
+   - shots_total (INTEGER)
+   - shots_on_target (INTEGER)
+   - penalty_scored (INTEGER)
+   - penalty_missed (INTEGER)
+   - xg (REAL)
+   - xa (REAL)
+   - season (TEXT)
+
+🔸 Table : sqlite_sequence
+   - name ()
+   - seq ()
+
+🔸 Table : leagues
+   - id (INTEGER)
+   - name (TEXT)
+   - country (TEXT)
+   - logo (TEXT)
+   - flag (TEXT)
+
+🔸 Table : fixture_events
+   - id (INTEGER)
+   - fixture_id (INTEGER)
+   - team_id (INTEGER)
+   - player_id (INTEGER)
+   - assist_id (INTEGER)
+   - type (TEXT)
+   - detail (TEXT)
+   - comments (TEXT)
+   - elapsed (INTEGER)
+   - extra (INTEGER)
+   - minute (INTEGER)
+
+🔸 Table : player_match_presence
+   - fixture_id (INTEGER)
+   - player_id (INTEGER)
+   - team_id (INTEGER)
+   - status (TEXT)
+
+📊 FONCTIONNALITÉS ACTUELLES
+- Import complet des matchs avec fallback en cas de stats manquantes
+- Affichage détaillé par match avec stats joueur/équipe
+- Filtres de performances (X1, MT, 2MT, DOM, EXT, H2H)
+- Graphiques des performances (Chart.js)
+- Tendances (pastilles vertes/rouges/grises)
+- Séries de buts (1re mi-temps, global, encaissés, etc.)
+- Stats cumulées (LS5, LS10, LS20, H2H)
+
+🧠 PRIORITÉS ACTUELLES
+- Calcul des stats cumulées (LS5, 10, 20, DOM, EXT, H2H) au moment de l’import
+- Suppression des traitements redondants dans `data_access.py`
+- Intégration de pourcentages de réussite dans les listes de joueurs
+- Refactorisation front (HTML + CSS) pour améliorer lisibilité et UX
+- Séparation claire entre stats générales, mi-temps, buteurs, etc.
+
+🧩 FONCTIONNALITÉS À VENIR
+- Fiches comparatives entre équipes
+- Météo (plus tard)
+- Authentification & abonnement
+- Caching des appels API
+- Import historique sur 10 saisons
+- Migration PostgreSQL
+- Responsive mobile complet
+
+🎨 CHARTE VISUELLE
+- Couleur fond principal : #2E3244
+- Couleur secondaire : #516079
+- Accent (orange) : #F1895C
+- Neutres : #C5C6C6 / #FFFFFF
+- Style général : minimaliste, visuel clair, focus sur la donnée
+- Icônes SVG pour les événements de match (cartons, buts, penalty…)
+
+🧩 NOTES SUPPLÉMENTAIRES
+- Tous les filtres (X1, X2, MT, 2MT, H2H...) sont centralisés dans `get_player_match_stats()`
+- Le système de fallback via `fixture_events` est actif quand `player_stats` est incomplet
+- Les fichiers JS sont segmentés par fonction (chart, panel, etc.)
+
+# ============================
+# Fin du fichier config_project.txt
+# ============================

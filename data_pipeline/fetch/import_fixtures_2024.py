@@ -139,12 +139,12 @@ def get_season_from_date(date_str, league_id):
     date_obj = datetime.strptime(date_str[:10], "%Y-%m-%d")
     year = date_obj.year
     month = date_obj.month
-    if league_id in [103, 113, 244, 119, 292, 253, 169, 98, 164, 71, 239]:  # Norvège, Suède, Finlande, Danemark, Corée, MLS, Chine, Japon, Islande, Colombi
+    if league_id in [103, 113, 244, 119, 292, 253, 169, 98, 164, 71, 239, 772]:  # Norvège, Suède, Finlande, Danemark, Corée, MLS, Chine, Japon, Islande, Colombi
         return year
     return year if month >= 7 else year - 1
 
 LEAGUES = [
-    103, 113, 244, 119, 292, 253, 169, 98, 164, 71, 239
+    772
 ]
 
 SEASON_BY_LEAGUE = {
@@ -153,11 +153,11 @@ SEASON_BY_LEAGUE = {
     307: 2024, 128: 2025, 71: 2025, 265: 2025, 169: 2025, 318: 2024, 239: 2025,
     292: 2025, 210: 2024, 242: 2025, 329: 2025, 253: 2025, 197: 2024, 357: 2025,
     164: 2025, 98: 2025, 365: 2025, 262: 2025, 250: 2025, 106: 2024, 283: 2024,
-    207: 2024, 203: 2024, 333: 2024, 239: 2025
+    207: 2024, 203: 2024, 333: 2024, 239: 2025, 772: 2025
 }
 
 DEFAULT_SEASON = 2024
-FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-07-20"
+FROM_DATE = sys.argv[1] if len(sys.argv) > 1 else "2025-07-28"
 TO_DATE = sys.argv[2] if len(sys.argv) > 2 else "2025-09-01"
 MODE = sys.argv[3] if len(sys.argv) > 3 else "complet"
 
